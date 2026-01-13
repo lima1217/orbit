@@ -7,12 +7,14 @@ import {
 import { ENTRANCE_DELAYS, FADE_IN } from '../constants/animationConfig';
 import { SkyBackground } from './SkyBackground';
 import { getSyncStatement, getSceneDescription } from '../constants/cityPoetry';
-import { SoundSelector, MusicButton, getSoundEnabled, saveSoundEnabled } from './SoundSelector';
+import { InlineSoundSelector } from './InlineSoundSelector';
+import { useAmbientPlayer } from '../hooks/useAmbientPlayer';
 
 interface TimeZoneHomeProps {
     wakeUpTime: Date;
     timezone: TimezoneInfo;
     onChangeTimezone: () => void;
+    onReturnToIntro?: () => void;
     isTransitioningFromIntro?: boolean;
 }
 
@@ -20,6 +22,7 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
     wakeUpTime,
     timezone,
     onChangeTimezone,
+    onReturnToIntro,
     isTransitioningFromIntro = false
 }) => {
     // Calculate the real current time in the mapped timezone city
@@ -45,15 +48,8 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
         return () => clearInterval(interval);
     }, [timezone.offset]);
 
-    // 🎵 音效状态
-    const [isSoundEnabled, setIsSoundEnabled] = useState(() => getSoundEnabled());
-    const [isSoundSelectorOpen, setIsSoundSelectorOpen] = useState(false);
-
-    // 处理开关切换
-    const handleToggleSound = (enabled: boolean) => {
-        setIsSoundEnabled(enabled);
-        saveSoundEnabled(enabled);
-    };
+    // 🎵 环境音效 - 自动播放
+    const { selectedIds, toggleSound } = useAmbientPlayer();
 
     // 获取两行诗意描述
     const syncStatement = getSyncStatement(timezone.cityCN);
@@ -66,10 +62,11 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
             transition={{ duration: isTransitioningFromIntro ? 0 : 0.5 }}
             className="fixed inset-0 flex flex-col"
         >
-            {/* Sky with gradient, celestial body (decorative) */}
+            {/* Sky with gradient, celestial body - click to return to intro */}
             <SkyBackground
                 orbitHour={currentTime}
                 hideCelestial={isTransitioningFromIntro}
+                onCelestialClick={onReturnToIntro}
             />
 
             {/* Content - 过渡期间隐藏，避免与 IntroSequence 冲突 */}
@@ -104,23 +101,26 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                         <motion.div
                             {...FADE_IN}
                             transition={{ delay: ENTRANCE_DELAYS.primary, duration: 0.6 }}
-                            className="text-center mb-10"
+                            className="text-center mb-8"
                         >
                             <div className="text-display text-gray-800">
                                 {formatOrbitTime(currentTime)}
                             </div>
                         </motion.div>
+
+                        {/* 🎵 内嵌式音效选择器 - 时间下方 */}
+                        <motion.div
+                            {...FADE_IN}
+                            transition={{ delay: ENTRANCE_DELAYS.primary + 0.2, duration: 0.5 }}
+                        >
+                            <InlineSoundSelector
+                                selectedIds={selectedIds}
+                                onToggleSound={toggleSound}
+                            />
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* 🎵 音效控制按钮 - 右上角 */}
-            {!isTransitioningFromIntro && (
-                <MusicButton
-                    onClick={() => setIsSoundSelectorOpen(true)}
-                    hasSound={isSoundEnabled}
-                />
-            )}
 
             {/* Footer - Change Button (过渡期间隐藏) */}
             {!isTransitioningFromIntro && (
@@ -137,14 +137,6 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                     </button>
                 </motion.div>
             )}
-
-            {/* 🎵 音效选择器 */}
-            <SoundSelector
-                isOpen={isSoundSelectorOpen}
-                onClose={() => setIsSoundSelectorOpen(false)}
-                soundEnabled={isSoundEnabled}
-                onToggleSound={handleToggleSound}
-            />
         </motion.div>
     );
 };

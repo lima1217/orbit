@@ -4,6 +4,7 @@ import { IntroSequence } from './components/IntroSequence';
 import { TimeZoneHome } from './components/TimeZoneHome';
 import { WakeUpSheet } from './components/WakeUpSheet';
 import { PickerComparisonDemo } from './components/PickerComparisonDemo';
+import { SoundLayoutPrototype } from './components/SoundLayoutPrototype';
 import {
   calculateLivingTimezone,
   getTimezoneByOffset,
@@ -14,10 +15,15 @@ import {
 // Check for demo mode via URL params
 const urlParams = new URLSearchParams(window.location.search);
 const isCompareDemo = urlParams.get('demo') === 'compare';
+const isPrototypeSound = urlParams.get('prototype') === 'sound';
 const forceFirstVisit = urlParams.get('first') === 'true';
 
-// Application phases (intro → reveal → timezone)
-type AppPhase = 'intro' | 'reveal' | 'timezone';
+// Application phases
+// intro: 显示光环
+// reveal: 光环消散，世界浮现（第一页→第二页）
+// timezone: 主界面
+// returning: 世界消散，光环浮现（第二页→第一页，完全是 reveal 的逆向）
+type AppPhase = 'intro' | 'reveal' | 'timezone' | 'returning';
 
 // Local storage keys
 const STORAGE_KEY_WAKEUP = 'orbit_wakeup_time';
@@ -58,13 +64,12 @@ function getCurrentOrbitHour(timezoneOffset: number): number {
 
 function App() {
   // Check if user has set wake-up time before (for first visit hint)
-  // ?first=true 参数可以强制模拟首次访问
   const [isFirstVisit] = useState(() => {
     if (forceFirstVisit) return true;
     return localStorage.getItem(STORAGE_KEY_WAKEUP) === null;
   });
 
-  // Always start with intro - every time the app opens
+  // Always start with intro
   const [phase, setPhase] = useState<AppPhase>('intro');
 
   // Initialize wake-up time (from storage or smart default)
@@ -95,67 +100,85 @@ function App() {
 
   // Handle intro completion - seamless transition via reveal phase
   const handleIntroComplete = useCallback(() => {
-    // Save default timezone if first time
     if (isFirstVisit) {
       localStorage.setItem(STORAGE_KEY_WAKEUP, `${DEFAULT_WAKEUP_HOUR}:${DEFAULT_WAKEUP_MINUTE}`);
     }
 
-    // 切换到 reveal，让 TimeZoneHome 在底层开始渲染
-    // 光晕会在 2.5 秒内消散，世界在其下方浮现
     setPhase('reveal');
 
-    // 等待光晕完全消散后切换到 timezone
     setTimeout(() => {
       setPhase('timezone');
-    }, 1000); // 与 IntroSequence 的消散时间一致
+    }, 1000);
   }, [isFirstVisit]);
 
   // Handle wake-up time change from sheet
   const handleWakeUpChange = useCallback((hour: number, minute: number) => {
     setWakeUpHour(hour);
     setWakeUpMinute(minute);
-
-    // Save to localStorage
     localStorage.setItem(STORAGE_KEY_WAKEUP, `${hour}:${minute}`);
   }, []);
 
-  // Handle change timezone request (opens the sheet)
+  // Handle change timezone request
   const handleChangeTimezone = useCallback(() => {
     setIsSheetOpen(true);
   }, []);
 
-  // Demo mode: Show comparison
+  // Handle return to intro - 完全是 reveal 的逆向
+  const handleReturnToIntro = useCallback(() => {
+    setPhase('returning');
+
+    // 1.2秒后完成过渡
+    setTimeout(() => {
+      setPhase('intro');
+    }, 1200);
+  }, []);
+
+  // Demo mode
   if (isCompareDemo) {
     return <PickerComparisonDemo />;
   }
 
+  if (isPrototypeSound) {
+    return <SoundLayoutPrototype />;
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* TimeZoneHome 始终在底层（当phase不是intro时显示） */}
+      {/* TimeZoneHome - 在 timezone/reveal/returning 阶段显示 */}
       <AnimatePresence>
-        {(phase === 'timezone' || phase === 'reveal') && (
-          <TimeZoneHome
-            key="timezone"
-            wakeUpTime={wakeUpTime}
-            timezone={timezone}
-            onChangeTimezone={handleChangeTimezone}
-            isTransitioningFromIntro={phase === 'reveal'}
-          />
+        {(phase === 'timezone' || phase === 'reveal' || phase === 'returning') && (
+          <motion.div
+            key="timezone-wrapper"
+            initial={{ opacity: phase === 'returning' ? 1 : 0 }}
+            animate={{ opacity: phase === 'returning' ? 0 : 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, ease: [0.22, 0.68, 0.35, 1.0] }}
+            className="absolute inset-0"
+          >
+            <TimeZoneHome
+              wakeUpTime={wakeUpTime}
+              timezone={timezone}
+              onChangeTimezone={handleChangeTimezone}
+              onReturnToIntro={handleReturnToIntro}
+              isTransitioningFromIntro={phase === 'reveal'}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* IntroSequence 在顶层 - 每次打开 App 都显示 */}
+      {/* IntroSequence - 在 intro/reveal/returning 阶段显示 */}
       <AnimatePresence>
-        {(phase === 'intro' || phase === 'reveal') && (
+        {(phase === 'intro' || phase === 'reveal' || phase === 'returning') && (
           <IntroSequence
             key="intro"
             onComplete={handleIntroComplete}
             targetOrbitHour={getCurrentOrbitHour(timezone.offset)}
+            isReturning={phase === 'returning'}
           />
         )}
       </AnimatePresence>
 
-      {/* Wake-up Sheet (modal, renders on top) */}
+      {/* Wake-up Sheet */}
       <AnimatePresence>
         {isSheetOpen && (
           <WakeUpSheet

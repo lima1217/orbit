@@ -40,7 +40,9 @@ export const ORBIT_SOUND_CONFIGS: OrbitSoundConfig[] = [
         id: 'day',
         name: '日间',
         orbitHourRange: [9, 17],
-        sounds: [], // 日间静音，让用户专注
+        sounds: [
+            { src: '/audio/intro-ambient.mp3', volume: 0.5 },  // 静心音效
+        ],
         icon: '☀️',
     },
     {

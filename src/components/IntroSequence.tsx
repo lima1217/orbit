@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { getDailyQuote } from '../constants/dailyQuotes';
-import { useAmbientSound } from '../hooks/useAmbientSound';
+import { unlockAudio } from '../utils/audioUnlock';
+import { startGlobalAudio } from '../utils/globalAudio';
 
 interface IntroSequenceProps {
     onComplete: () => void;
     targetOrbitHour: number;
+    /** 是否从返回过渡进入（反向动画） */
+    isReturning?: boolean;
 }
 
 type IntroPhase = 'HALO' | 'DISSOLVING' | 'COMPLETE';
@@ -15,7 +18,11 @@ type IntroPhase = 'HALO' | 'DISSOLVING' | 'COMPLETE';
  */
 const BREATHING_EASE: [number, number, number, number] = [0.22, 0.68, 0.35, 1.0];
 
-export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, targetOrbitHour: _targetOrbitHour }) => {
+export const IntroSequence: React.FC<IntroSequenceProps> = ({
+    onComplete,
+    targetOrbitHour: _targetOrbitHour,
+    isReturning = false
+}) => {
     const [phase, setPhase] = useState<IntroPhase>('HALO');
     const [holdProgress, setHoldProgress] = useState(0);
     const holdIntervalRef = useRef<number | null>(null);
@@ -23,24 +30,21 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
     // Get today's quote
     const dailyQuote = getDailyQuote();
 
-    // 🎵 简单的环境音 - Intro 页面只播放一个固定的欢迎音效
-    const { play: playAmbientSound, fadeOut: fadeOutAmbientSound } = useAmbientSound({
-        src: '/audio/intro-ambient.mp3',
-        volume: 0.2,
-        fadeInDuration: 2000,
-        fadeOutDuration: 1500,
-        loop: true,
-    });
+    // 🎵 音效状态 - Intro 页面直接使用全局音效系统
+    // 播放用户上次选择的音效（默认是🧘 zen）
     const hasStartedAudioRef = useRef(false);
-    const hasFadingOutRef = useRef(false);
 
     // 用户首次触摸/点击页面时播放环境音（必须由用户手势触发）
     const startAudioOnInteraction = useCallback(() => {
         if (!hasStartedAudioRef.current) {
             hasStartedAudioRef.current = true;
-            playAmbientSound();
+            // 🔓 解锁全局音频上下文
+            unlockAudio();
+            // 🎵 直接启动全局音效（使用用户保存的或默认的🧘）
+            // 这样音效会从 Intro 延续到主界面，无需重新启动
+            startGlobalAudio();
         }
-    }, [playAmbientSound]);
+    }, []);
 
     // 音效淡出现在在长按过程中触发（见 startHolding）
     // 不再需要在 DISSOLVING 阶段额外触发
@@ -73,6 +77,8 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
         // 确保音频已启动（用户交互触发，绕过浏览器限制）
         startAudioOnInteraction();
 
+        // 音效不需要淡出，因为从 Intro 延续到主界面
+
         let progress = 0;
         const duration = 1000;  // 1秒长按，快速响应
         const interval = 16;
@@ -81,12 +87,6 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
             progress += interval;
             const percentage = Math.min(progress / duration, 1);
             setHoldProgress(percentage);
-
-            // 在长按进度达到 30% 时开始淡出音效
-            if (percentage >= 0.3 && !hasFadingOutRef.current) {
-                hasFadingOutRef.current = true;
-                fadeOutAmbientSound();
-            }
 
             if (percentage >= 1) {
                 if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
@@ -102,9 +102,6 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
         }
         if (phase === 'HALO') {
             setHoldProgress(0);
-            // 注意：如果用户中途松手，音效已经开始淡出了
-            // 这里不重置 hasFadingOutRef，让淡出继续完成
-            // 用户需要重新进入页面才能听到新的音效
         }
     };
 
@@ -137,9 +134,9 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
             onMouseLeave={stopHolding}
             onTouchStart={() => { startAudioOnInteraction(); startHolding(); }}
             onTouchEnd={stopHolding}
-            initial={{ opacity: 1 }}
+            initial={{ opacity: isReturning ? 0 : 1 }}
             animate={phase === 'DISSOLVING' || phase === 'COMPLETE' ? { opacity: 0 } : { opacity: 1 }}
-            transition={{ duration: 1, ease: BREATHING_EASE }}
+            transition={{ duration: 1.2, ease: BREATHING_EASE }}
         >
             {/* 背景层：梦幻渐变 - 随整体一起消散 */}
             <motion.div
@@ -150,12 +147,14 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
                 {phase !== 'COMPLETE' && (
                     <motion.div
                         className="relative flex flex-col items-center justify-center w-full h-full"
-                        initial={{ scale: 1 }}
+                        initial={{ scale: isReturning ? 1.15 : 1 }}
                         animate={phase === 'DISSOLVING' ? {
-                            scale: 1.15, // 轻微放大，像呼吸一样消散
-                        } : {}}
+                            scale: 1.15,
+                        } : {
+                            scale: 1,
+                        }}
                         transition={{
-                            duration: 1,
+                            duration: 1.2,
                             ease: BREATHING_EASE,
                         }}
                     >
@@ -220,7 +219,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({ onComplete, target
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8, duration: 1 }}
                 >
-                    <p className="text-quote text-dream-text/70 tracking-wider">
+                    <p className="text-quote text-dream-text/70 tracking-wider whitespace-pre-line">
                         {dailyQuote.text}
                     </p>
                 </motion.div>

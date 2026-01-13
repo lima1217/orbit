@@ -14,7 +14,7 @@ export interface DailyQuote {
  * 这句话定义了 Orbit 的灵魂
  */
 export const CORE_SLOGAN: DailyQuote = {
-    text: "每个失眠的人都是流亡者——被放逐到错误的时区",
+    text: "每个失眠的人都是流亡者\n——被放逐到错误的时区",
     author: "Orbit"
 };
 
@@ -78,40 +78,11 @@ export const DAILY_QUOTES: DailyQuote[] = [
     }
 ];
 
-const FIRST_VISIT_KEY = 'orbit_has_seen_slogan';
-
 /**
- * Get today's quote based on date
- * - First visit: Always show the core slogan
- * - URL param ?first=true: Force show core slogan (for testing)
- * - Subsequent visits: Random daily quote
+ * Get the core slogan
+ * Less is more - 一句足够有力的话，胜过每天换一句
  */
 export function getDailyQuote(): DailyQuote {
-    // 检查 URL 参数是否强制首次访问
-    const urlParams = new URLSearchParams(window.location.search);
-    const forceFirst = urlParams.get('first') === 'true';
-
-    if (forceFirst) {
-        return CORE_SLOGAN;
-    }
-
-    // 检测是否是首次访问
-    const hasSeenSlogan = localStorage.getItem(FIRST_VISIT_KEY);
-
-    if (!hasSeenSlogan) {
-        // 首次访问：显示核心 Slogan，并标记已显示
-        localStorage.setItem(FIRST_VISIT_KEY, 'true');
-        return CORE_SLOGAN;
-    }
-
-    // 后续访问：基于日期的轮换（跳过索引0的 CORE_SLOGAN，让它更稀有）
-    const today = new Date();
-    const dayOfYear = Math.floor(
-        (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    // 从索引1开始轮换，这样核心 Slogan 只在首次访问时必现
-    const quotesWithoutCore = DAILY_QUOTES.slice(1);
-    const index = dayOfYear % quotesWithoutCore.length;
-    return quotesWithoutCore[index];
+    return CORE_SLOGAN;
 }
 

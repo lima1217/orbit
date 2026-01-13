@@ -12,61 +12,92 @@ export interface AmbientSound {
 }
 
 export const AMBIENT_SOUNDS: AmbientSound[] = [
+    // 第一排：🧘 🔔 🐟 🌲
     {
-        id: 'ocean',
-        name: '海岸',
-        nameEn: 'Ocean Coast',
-        src: '/audio/ocean-coast.mp3',  // 海岸1 完整版
-        icon: '🌊',
-    },
-    {
-        id: 'wind-chime',
-        name: '风铃',
-        nameEn: 'Wind Chime',
-        src: '/audio/wind-chime.mp3',  // 風鈴が鳴る家1 完整版
-        icon: '🎐',
-    },
-    {
-        id: 'umbrella',
-        name: '雨伞',
-        nameEn: 'Rain on Umbrella',
-        src: '/audio/umbrella-full.wav',  // 完整版
-        icon: '☔️',
-    },
-    {
-        id: 'forest',
-        name: '春山',
-        nameEn: 'Spring Mountain',
-        src: '/audio/spring-mountain.mp3',  // 春の山 完整版
-        icon: '🌲',
-    },
-    {
-        id: 'insects',
-        name: '夏夜',
-        nameEn: 'Summer Night',
-        src: '/audio/summer-night.mp3',  // 夏の山 完整版
-        icon: '🌙',
-    },
-    {
-        id: 'cat',
-        name: '猫咪',
-        nameEn: 'Cat Meowing',
-        src: '/audio/cat-full.mp3',  // 完整版
-        icon: '🐱',
-    },
-    {
-        id: 'mokugyo',
-        name: '木鱼',
-        nameEn: 'Mokugyo',
-        src: '/audio/mokugyo.mp3',  // 使用原始完整版
-        icon: '🐟',
+        id: 'zen',
+        name: '静心',
+        nameEn: 'Zen Ambience',
+        src: '/audio/intro-ambient.mp3',
+        icon: '🧘',
     },
     {
         id: 'singing-bowl',
         name: '颂钵',
         nameEn: 'Singing Bowl',
-        src: '/audio/singing-bowl-raw.mp3',  // 完整版原始音频
+        src: '/audio/singing-bowl-raw.mp3',
         icon: '🔔',
+    },
+    {
+        id: 'mokugyo',
+        name: '木鱼',
+        nameEn: 'Mokugyo',
+        src: '/audio/mokugyo.mp3',
+        icon: '🐟',
+    },
+    {
+        id: 'forest',
+        name: '春山',
+        nameEn: 'Spring Mountain',
+        src: '/audio/spring-mountain.mp3',
+        icon: '🌲',
+    },
+    // 第二排：🎐 🐱 ☔️ 🌙
+    {
+        id: 'wind-chime',
+        name: '风铃',
+        nameEn: 'Wind Chime',
+        src: '/audio/wind-chime.mp3',
+        icon: '🎐',
+    },
+    {
+        id: 'cat',
+        name: '猫咪',
+        nameEn: 'Cat Meowing',
+        src: '/audio/cat-full.mp3',
+        icon: '🐱',
+    },
+    {
+        id: 'umbrella',
+        name: '雨伞',
+        nameEn: 'Rain on Umbrella',
+        src: '/audio/umbrella-full.wav',
+        icon: '☔️',
+    },
+    {
+        id: 'insects',
+        name: '夏夜',
+        nameEn: 'Summer Night',
+        src: '/audio/summer-night.mp3',
+        icon: '🌙',
+    },
+    // 第三排：💧 🌧 🌊 🔥
+    {
+        id: 'water-drop',
+        name: '水滴',
+        nameEn: 'Water Drops',
+        src: '/audio/water-drop.mp3',
+        icon: '💧',
+    },
+    {
+        id: 'rain',
+        name: '落雨',
+        nameEn: 'Rainfall',
+        src: '/audio/rainfall.mp3',
+        icon: '🌧',
+    },
+    {
+        id: 'ocean',
+        name: '海岸',
+        nameEn: 'Ocean Coast',
+        src: '/audio/ocean-coast.mp3',
+        icon: '🌊',
+    },
+    {
+        id: 'bonfire',
+        name: '篝火',
+        nameEn: 'Bonfire',
+        src: '/audio/bonfire.mp3',
+        icon: '🔥',
     },
 ];
 

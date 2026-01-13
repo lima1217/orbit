@@ -1,121 +1,28 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     AMBIENT_SOUNDS,
     AmbientSound,
-    getSavedSoundMix,
-    saveSoundMix
 } from '../constants/ambientSounds';
-
-// localStorage key
-const SOUND_ENABLED_KEY = 'orbit_sound_enabled';
-
-export function getSoundEnabled(): boolean {
-    const saved = localStorage.getItem(SOUND_ENABLED_KEY);
-    return saved !== 'false';
-}
-
-export function saveSoundEnabled(enabled: boolean): void {
-    localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
-}
 
 interface SoundSelectorProps {
     isOpen: boolean;
     onClose: () => void;
-    soundEnabled: boolean;
-    onToggleSound: (enabled: boolean) => void;
+    selectedIds: string[];
+    onToggleSound: (soundId: string) => void;
 }
 
 /**
  * 🎵 SoundSelector - 环境音效选择器（支持混音）
+ * 
+ * 只负责 UI 展示，音频播放由 useAmbientPlayer hook 管理
  */
 export const SoundSelector: React.FC<SoundSelectorProps> = ({
     isOpen,
     onClose,
-    soundEnabled,
+    selectedIds,
     onToggleSound,
 }) => {
-    // 选中的音效 IDs
-    const [selectedIds, setSelectedIds] = useState<string[]>(() => {
-        const saved = getSavedSoundMix();
-        return saved.length > 0 ? saved : ['ocean'];
-    });
-
-    // 音频播放器引用
-    const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
-
-    // 切换音效选择（允许全部取消 = 静音）
-    const toggleSound = useCallback((soundId: string) => {
-        setSelectedIds(prev => {
-            const newIds = prev.includes(soundId)
-                ? prev.filter(id => id !== soundId)
-                : [...prev, soundId];
-
-            saveSoundMix(newIds);
-
-            // 同步更新 soundEnabled 状态
-            const hasSound = newIds.length > 0;
-            if (hasSound !== soundEnabled) {
-                saveSoundEnabled(hasSound);
-                onToggleSound(hasSound);
-            }
-
-            return newIds;
-        });
-    }, [soundEnabled, onToggleSound]);
-
-    // 管理音频播放
-    useEffect(() => {
-        // 停止所有未选中的音频
-        audioRefs.current.forEach((audio, id) => {
-            if (!selectedIds.includes(id)) {
-                audio.pause();
-                audio.currentTime = 0;
-            }
-        });
-
-        // 如果没有选中任何音效，直接返回
-        if (selectedIds.length === 0) return;
-
-        // 播放选中的音效
-        selectedIds.forEach(id => {
-            const sound = AMBIENT_SOUNDS.find(s => s.id === id);
-            if (!sound) return;
-
-            let audio = audioRefs.current.get(id);
-            if (!audio) {
-                audio = new Audio(sound.src);
-                audio.loop = true;
-                audioRefs.current.set(id, audio);
-            }
-
-            audio.volume = 1.0 / Math.max(1, selectedIds.length);  // 调高音量
-            audio.play().catch(console.warn);
-        });
-    }, [selectedIds]);
-
-    // 调整音量
-    useEffect(() => {
-        if (selectedIds.length === 0) return;
-        const volume = 1.0 / selectedIds.length;  // 调高音量
-        audioRefs.current.forEach((audio, id) => {
-            if (selectedIds.includes(id)) {
-                audio.volume = volume;
-            }
-        });
-    }, [selectedIds]);
-
-    // 清理
-    useEffect(() => {
-        return () => {
-            audioRefs.current.forEach(audio => {
-                audio.pause();
-                audio.src = '';
-            });
-            audioRefs.current.clear();
-        };
-    }, []);
-
     return (
         <AnimatePresence>
             {isOpen && (
@@ -172,7 +79,7 @@ export const SoundSelector: React.FC<SoundSelectorProps> = ({
                                         key={sound.id}
                                         sound={sound}
                                         isSelected={selectedIds.includes(sound.id)}
-                                        onClick={() => toggleSound(sound.id)}
+                                        onClick={() => onToggleSound(sound.id)}
                                     />
                                 ))}
                             </div>
@@ -230,20 +137,50 @@ const SoundOption: React.FC<SoundOptionProps> = ({ sound, isSelected, onClick })
 interface MusicButtonProps {
     onClick: (e?: React.MouseEvent) => void;
     hasSound: boolean;
+    isFirstTime?: boolean;
 }
 
-export const MusicButton: React.FC<MusicButtonProps> = ({ onClick, hasSound }) => {
+export const MusicButton: React.FC<MusicButtonProps> = ({ onClick, hasSound, isFirstTime = false }) => {
     return (
         <motion.button
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            whileHover={{ opacity: 0.8 }}
+            animate={{
+                opacity: 0.6,
+                // 首次进入时添加呼吸动画
+                scale: isFirstTime ? [1, 1.15, 1] : 1,
+            }}
+            whileHover={{ opacity: 0.9, scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
+            transition={{
+                delay: 0.8,
+                duration: 0.5,
+                // 首次进入时的呼吸循环
+                scale: isFirstTime ? {
+                    duration: 2,
+                    repeat: 3,
+                    ease: "easeInOut"
+                } : undefined
+            }}
             onClick={onClick}
             className="absolute top-8 right-8 w-9 h-9 flex items-center justify-center cursor-pointer z-50"
             aria-label="选择环境音"
         >
+            {/* 首次进入时的光晕效果 */}
+            {isFirstTime && (
+                <motion.div
+                    className="absolute inset-0 rounded-full bg-soul-gold/20"
+                    initial={{ opacity: 0, scale: 1 }}
+                    animate={{
+                        opacity: [0, 0.6, 0],
+                        scale: [1, 1.8, 2]
+                    }}
+                    transition={{
+                        duration: 2,
+                        repeat: 3,
+                        ease: "easeOut"
+                    }}
+                />
+            )}
             <svg
                 width="20"
                 height="20"
@@ -253,7 +190,7 @@ export const MusicButton: React.FC<MusicButtonProps> = ({ onClick, hasSound }) =
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={hasSound ? 'text-gray-500/80' : 'text-gray-400/60'}
+                className={hasSound ? 'text-gray-600' : 'text-gray-400/60'}
             >
                 <path d="M9 18V5l12-2v13" />
                 <circle cx="6" cy="18" r="3" />
