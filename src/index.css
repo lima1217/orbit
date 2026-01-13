@@ -1,0 +1,135 @@
+/*
+ * ============================================
+ * Orbit Typography System
+ * ============================================
+ * 设计哲学：一个字体家族，字重定义层级
+ * 灵感来源：乔布斯从 Helvetica 到 San Francisco 的严谨
+ * 
+ * Font Family: Inter (现代 UI 标杆字体)
+ * - Light 300:    Display, Caption
+ * - Regular 400:  Body
+ * - Medium 500:   Title, Overline
+ * - Semibold 600: Headline
+ * 
+ * 特殊字体: LXGW WenKai (霞鹜文楷)
+ * - 用途：诗意名言、引用语
+ * - 风格：手写楷书，温暖有灵魂
+ * ============================================
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+/* 霞鹜文楷 - 加粗版本更有质感 */
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dawn-cream text-gray-600 font-sans antialiased overflow-hidden selection:bg-blush-soft/30;
+  }
+}
+
+@layer components {
+  /*
+   * Typography Hierarchy
+   * --------------------
+   * 每个层级都有明确的用途，请勿混用
+   */
+
+  /* Display: 超大时间显示 (8xl-9xl, Light 300) */
+  .text-display {
+    @apply text-8xl md:text-9xl font-light tracking-tight;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Headline: 城市名、页面主标题 (2xl-3xl, Semibold 600) */
+  .text-headline {
+    @apply text-2xl md:text-3xl font-semibold tracking-normal;
+  }
+
+  /* Title: 面板标题、卡片标题 (lg, Medium 500) */
+  .text-title {
+    @apply text-lg font-medium;
+  }
+
+  /* Body: 正文内容 (base, Regular 400) */
+  .text-body {
+    @apply text-base font-normal;
+  }
+
+  /* Caption: 诗意文案、提示语、辅助信息 (sm, Light 300) */
+  .text-caption {
+    @apply text-sm font-light;
+  }
+
+  /* Small Caption: 最小提示文字 (xs, Light 300) */
+  .text-caption-small {
+    @apply text-xs font-light tracking-wider;
+  }
+
+  /* Overline: 区块标签、分类标题 (xs, Medium 500, uppercase) */
+  .text-overline {
+    @apply text-xs font-medium uppercase tracking-wider;
+  }
+
+  /* Button: 按钮文字 (sm, Light 300) */
+  .text-button {
+    @apply text-sm font-light tracking-wide;
+  }
+
+  /* Picker Value: 时间选择器中的值 (3xl, Light 300) */
+  .text-picker-selected {
+    @apply text-3xl font-light tracking-wider;
+  }
+
+  /* Picker Option: 时间选择器中未选中的值 (lg, Light 300) */
+  .text-picker-option {
+    @apply text-lg font-light;
+  }
+
+  /* Quote: 诗意名言、每日引用 - 霞鹜文楷加粗版 */
+  .text-quote {
+    font-family: 'LXGW WenKai', serif;
+    @apply text-lg font-bold leading-relaxed tracking-wide;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl;
+  }
+
+  .glass-button {
+    @apply backdrop-blur-sm bg-white/10 border border-white/20 hover:bg-white/20 transition-all duration-300;
+  }
+
+  /* Hide scrollbar for scroll wheel picker */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 安全区域边距 - 适配 iPhone 刘海和底部导航条 */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* 无障碍支持：尊重用户的减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

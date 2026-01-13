@@ -1,0 +1,11 @@
+{
+    "name": "orbit-skills",
+    "version": "0.1.0",
+    "description": "Custom skills for React/TypeScript development and time-based UI projects",
+    "skills": [
+        "react-patterns",
+        "time-ui-patterns",
+        "vite-optimization",
+        "project-init"
+    ]
+}

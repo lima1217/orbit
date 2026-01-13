@@ -1,0 +1,327 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { TimezoneInfo } from '../constants/timezones';
+import {
+    getLifeEvents,
+    saveLifeEvents,
+    addLifeEvent,
+    deleteLifeEvent,
+    canAddMoreEvents,
+    getMaxEvents,
+    LifeEvent
+} from '../constants/lifeEvents';
+import { EventTimePicker } from './EventTimePicker';
+
+interface SettingsPanelProps {
+    isOpen: boolean;
+    onClose: () => void;
+    timezone: TimezoneInfo;
+    wakeUpHour: number;
+    wakeUpMinute: number;
+    onChangeWakeUpTime: () => void;
+}
+
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({
+    isOpen,
+    onClose,
+    timezone,
+    wakeUpHour,
+    wakeUpMinute,
+    onChangeWakeUpTime
+}) => {
+    const [events, setEvents] = useState<LifeEvent[]>([]);
+    const [editingEvent, setEditingEvent] = useState<LifeEvent | null>(null);
+    const [isDeleteMode, setIsDeleteMode] = useState(false);
+    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [newEventInput, setNewEventInput] = useState('');
+
+    // Load events when panel opens
+    useEffect(() => {
+        if (isOpen) {
+            setEvents(getLifeEvents());
+            setIsDeleteMode(false);
+            setIsAddingNew(false);
+        }
+    }, [isOpen]);
+
+    const handleEventTimeChange = (hour: number) => {
+        if (editingEvent) {
+            const updated = events.map(e =>
+                e.id === editingEvent.id ? { ...e, orbitHour: hour } : e
+            );
+            setEvents(updated);
+            saveLifeEvents(updated);
+            setEditingEvent(null);
+        }
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        deleteLifeEvent(id);
+        setEvents(getLifeEvents());
+    };
+
+    const handleAddEvent = () => {
+        if (!newEventInput.trim()) return;
+
+        // Parse emoji from start of input
+        const emojiRegex = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u;
+        const match = newEventInput.match(emojiRegex);
+
+        let emoji = '📌';
+        let label = newEventInput.trim();
+
+        if (match) {
+            emoji = match[0];
+            label = newEventInput.slice(match[0].length).trim() || '新活动';
+        }
+
+        const newEvent = addLifeEvent({
+            emoji,
+            label,
+            orbitHour: 8, // Default: 8 hours after waking
+        });
+
+        if (newEvent) {
+            setEvents(getLifeEvents());
+            setNewEventInput('');
+            setIsAddingNew(false);
+        }
+    };
+
+    const formatTime = (hour: number, minute: number = 0) => {
+        const h = hour % 12 || 12;
+        const period = hour >= 12 ? 'PM' : 'AM';
+        return `${h.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${period}`;
+    };
+
+    const formatOrbitHour = (hour: number) => {
+        const h = Math.floor(hour);
+        const m = Math.round((hour - h) * 60);
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    return (
+        <>
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            onClick={onClose}
+                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+                        />
+
+                        {/* Panel - slides in from left */}
+                        <motion.div
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                            className="fixed top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-white/95 backdrop-blur-xl shadow-2xl z-50 overflow-y-auto"
+                        >
+                            {/* Header */}
+                            <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+                                <h2 className="text-title text-gray-800">设置</h2>
+                                <button
+                                    onClick={onClose}
+                                    className="p-2 -mr-2 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-5 space-y-6">
+                                {/* Personal Info Section */}
+                                <section>
+                                    <h3 className="text-overline text-gray-400 mb-3">
+                                        个人信息
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {/* Wake Up Time */}
+                                        <button
+                                            onClick={onChangeWakeUpTime}
+                                            className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer group"
+                                        >
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-caption text-gray-500">起床时间</span>
+                                                <span className="text-body font-medium text-gray-800">
+                                                    {formatTime(wakeUpHour, wakeUpMinute)}
+                                                </span>
+                                            </div>
+                                            <ChevronRight size={18} className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+                                        </button>
+
+                                        {/* Living Timezone */}
+                                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-caption text-gray-500">身体时区</span>
+                                                <span className="text-body font-medium text-gray-800">
+                                                    {timezone.emoji} {timezone.cityCN}
+                                                </span>
+                                            </div>
+                                            <span className="text-caption text-gray-400">
+                                                UTC{timezone.offset >= 0 ? '+' : ''}{timezone.offset}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* Life Events Section */}
+                                <section>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-overline text-gray-400">
+                                            日常活动 ({events.length}/{getMaxEvents()})
+                                        </h3>
+                                        <button
+                                            onClick={() => setIsDeleteMode(!isDeleteMode)}
+                                            className={`text-xs px-2 py-1 rounded-lg transition-colors cursor-pointer ${isDeleteMode
+                                                ? 'bg-red-50 text-red-500'
+                                                : 'text-gray-400 hover:text-gray-600'
+                                                }`}
+                                        >
+                                            {isDeleteMode ? '完成' : '编辑'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {events.map(event => (
+                                            <motion.div
+                                                key={event.id}
+                                                layout
+                                                animate={isDeleteMode ? { x: [0, -2, 2, -2, 0] } : {}}
+                                                transition={isDeleteMode ? {
+                                                    repeat: Infinity,
+                                                    duration: 0.3,
+                                                    repeatDelay: 0.5
+                                                } : {}}
+                                                className="relative"
+                                            >
+                                                <button
+                                                    onClick={() => !isDeleteMode && setEditingEvent(event)}
+                                                    disabled={isDeleteMode}
+                                                    className={`w-full flex items-center justify-between p-3 bg-gray-50 rounded-xl transition-colors group ${isDeleteMode ? 'opacity-80' : 'hover:bg-gray-100 cursor-pointer'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xl">{event.emoji}</span>
+                                                        <span className="text-body text-gray-700">{event.label}</span>
+                                                    </div>
+                                                    {!isDeleteMode && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-caption font-medium text-gray-500">
+                                                                {formatOrbitHour(event.orbitHour)}
+                                                            </span>
+                                                            <ChevronRight size={18} className="text-gray-300 group-hover:text-gray-400 transition-colors" />
+                                                        </div>
+                                                    )}
+                                                </button>
+
+                                                {/* Delete button */}
+                                                {isDeleteMode && (
+                                                    <motion.button
+                                                        initial={{ scale: 0, opacity: 0 }}
+                                                        animate={{ scale: 1, opacity: 1 }}
+                                                        exit={{ scale: 0, opacity: 0 }}
+                                                        onClick={() => handleDeleteEvent(event.id)}
+                                                        className="absolute -right-2 -top-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
+                                                    >
+                                                        <X size={12} className="text-white" />
+                                                    </motion.button>
+                                                )}
+                                            </motion.div>
+                                        ))}
+
+                                        {/* Add new event */}
+                                        {!isDeleteMode && (
+                                            <AnimatePresence mode="wait">
+                                                {isAddingNew ? (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <div className="p-3 bg-gray-50 rounded-xl space-y-3">
+                                                            <input
+                                                                type="text"
+                                                                value={newEventInput}
+                                                                onChange={(e) => setNewEventInput(e.target.value)}
+                                                                onKeyDown={(e) => e.key === 'Enter' && handleAddEvent()}
+                                                                placeholder="🧘 冥想"
+                                                                className="w-full px-3 py-2 bg-white rounded-lg border border-gray-200 text-gray-800 placeholder-gray-400 focus:outline-none focus:border-gray-300"
+                                                                autoFocus
+                                                            />
+                                                            <p className="text-caption-small text-gray-400">
+                                                                输入 emoji + 活动名称，如 "🧘 冥想"
+                                                            </p>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => setIsAddingNew(false)}
+                                                                    className="flex-1 py-2 text-button text-gray-500 hover:text-gray-700 transition-colors cursor-pointer"
+                                                                >
+                                                                    取消
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleAddEvent}
+                                                                    className="flex-1 py-2 text-button bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
+                                                                >
+                                                                    添加
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                ) : canAddMoreEvents() ? (
+                                                    <motion.button
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        onClick={() => setIsAddingNew(true)}
+                                                        className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-200 hover:border-gray-300 rounded-xl text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                                                    >
+                                                        <Plus size={16} />
+                                                        <span className="text-button">添加活动</span>
+                                                    </motion.button>
+                                                ) : null}
+                                            </AnimatePresence>
+                                        )}
+
+                                        {/* Empty state */}
+                                        {events.length === 0 && (
+                                            <div className="text-center py-6">
+                                                <p className="text-caption text-gray-400">你的一天，由你定义</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+
+                                {/* Footer hint */}
+                                <p className="text-caption-small text-gray-400 text-center pt-4">
+                                    你的时间，你来落款
+                                </p>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* Event Time Picker Modal */}
+            <AnimatePresence>
+                {editingEvent && (
+                    <EventTimePicker
+                        event={editingEvent}
+                        currentHour={editingEvent.orbitHour}
+                        onSave={handleEventTimeChange}
+                        onClose={() => setEditingEvent(null)}
+                        timezoneOffset={timezone.offset}
+                        wakeUpHour={wakeUpHour}
+                    />
+                )}
+            </AnimatePresence>
+        </>
+    );
+};
