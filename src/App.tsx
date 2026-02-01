@@ -63,14 +63,18 @@ function getCurrentOrbitHour(timezoneOffset: number): number {
 }
 
 function App() {
-  // Check if user has set wake-up time before (for first visit hint)
+  // Check if user has set wake-up time before (for first visit detection)
   const [isFirstVisit] = useState(() => {
     if (forceFirstVisit) return true;
     return localStorage.getItem(STORAGE_KEY_WAKEUP) === null;
   });
 
-  // Always start with intro
-  const [phase, setPhase] = useState<AppPhase>('intro');
+  // Returning users go directly to timezone, new users see intro
+  const [phase, setPhase] = useState<AppPhase>(() => {
+    if (forceFirstVisit) return 'intro';
+    // If user has saved wake-up time, skip intro and go directly to main page
+    return localStorage.getItem(STORAGE_KEY_WAKEUP) !== null ? 'timezone' : 'intro';
+  });
 
   // Initialize wake-up time (from storage or smart default)
   const [wakeUpHour, setWakeUpHour] = useState(() => {

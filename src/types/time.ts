@@ -1,8 +1,10 @@
+import { TimezoneInfo } from './timezone';
+
 export type TimePhase = 'Dawn' | 'Day' | 'Dusk' | 'Night' | 'Late Night';
 
 // Configuration for a user's unique rhythm
 export interface UserRhythmConfig {
-    wakingTime: number; // Keep for backward compatibility or UI init
+    wakingTime: number; // The user's wake-up hour (0-23)
     bedTime: number;
     peakEnergyTime: number;
 
@@ -25,4 +27,7 @@ export interface OrbitTime {
 
     // A descriptive "Soul Label"
     label: string;
+
+    // Living Timezone information
+    livingTimezone?: TimezoneInfo;
 }
