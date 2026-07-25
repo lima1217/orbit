@@ -103,7 +103,7 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
                 aria-label={collapsedLabel}
                 aria-expanded={isExpanded}
                 aria-controls={listId}
-                aria-haspopup="true"
+                aria-haspopup="dialog"
                 className="relative z-10 flex items-center justify-center gap-2 min-h-11 min-w-11 px-3.5 py-2.5 rounded-full
                            glass-button cursor-pointer
                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
@@ -146,7 +146,8 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
                     <motion.div
                         key="expanded"
                         id={listId}
-                        role="group"
+                        role="dialog"
+                        aria-modal="false"
                         aria-label="环境音"
                         initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
                         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}

@@ -142,42 +142,49 @@ function App() {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* TimeZoneHome - 在 timezone/reveal/returning 阶段显示 */}
-      <AnimatePresence>
-        {(phase === 'timezone' || phase === 'reveal' || phase === 'returning') && (
-          <motion.div
-            key="timezone-wrapper"
-            initial={{ opacity: phase === 'returning' ? 1 : 0 }}
-            animate={{ opacity: phase === 'returning' ? 0 : 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.2, ease: [0.22, 0.68, 0.35, 1.0] }}
-            className="absolute inset-0"
-          >
-            <TimeZoneHome
-              wakeUpTime={wakeUpTime}
-              timezone={timezone}
-              onChangeTimezone={handleChangeTimezone}
-              onReturnToIntro={handleReturnToIntro}
-              isTransitioningFromIntro={phase === 'reveal'}
+    <>
+      {/* Background UI is inert while the sheet is open (focus + AT isolation) */}
+      <div
+        className="relative min-h-screen overflow-hidden"
+        inert={isSheetOpen}
+      >
+        {/* TimeZoneHome - 在 timezone/reveal/returning 阶段显示 */}
+        <AnimatePresence>
+          {(phase === 'timezone' || phase === 'reveal' || phase === 'returning') && (
+            <motion.div
+              key="timezone-wrapper"
+              initial={{ opacity: phase === 'returning' ? 1 : 0 }}
+              animate={{ opacity: phase === 'returning' ? 0 : 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2, ease: [0.22, 0.68, 0.35, 1.0] }}
+              className="absolute inset-0"
+            >
+              <TimeZoneHome
+                wakeUpTime={wakeUpTime}
+                timezone={timezone}
+                onChangeTimezone={handleChangeTimezone}
+                onReturnToIntro={handleReturnToIntro}
+                isTransitioningFromIntro={phase === 'reveal'}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* IntroSequence - 在 intro/reveal/returning 阶段显示 */}
+        <AnimatePresence>
+          {(phase === 'intro' || phase === 'reveal' || phase === 'returning') && (
+            <IntroSequence
+              key="intro"
+              onComplete={handleIntroComplete}
+              targetOrbitHour={getCurrentOrbitHour(timezone.offset)}
+              isReturning={phase === 'returning'}
+              isPrimary={phase === 'intro'}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* IntroSequence - 在 intro/reveal/returning 阶段显示 */}
-      <AnimatePresence>
-        {(phase === 'intro' || phase === 'reveal' || phase === 'returning') && (
-          <IntroSequence
-            key="intro"
-            onComplete={handleIntroComplete}
-            targetOrbitHour={getCurrentOrbitHour(timezone.offset)}
-            isReturning={phase === 'returning'}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Wake-up Sheet — presence owned inside (exit spring must run) */}
+      {/* Wake-up Sheet — sibling of inert shell so dialog stays interactive */}
       <WakeUpSheet
         isOpen={isSheetOpen}
         onClose={handleSheetClose}
@@ -186,7 +193,7 @@ function App() {
         initialMinute={wakeUpMinute}
         required={isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null}
       />
-    </div>
+    </>
   );
 }
 

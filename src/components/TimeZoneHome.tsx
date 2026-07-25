@@ -123,7 +123,7 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                                             <span aria-hidden="true">{timezone.emoji}</span>{' '}
                                             <span translate="no">{timezone.city}</span>
                                         </h1>
-                                        <p className="text-quote text-ink-muted">
+                                        <p className="text-quote text-ink-secondary text-pretty">
                                             {syncStatement}
                                         </p>
                                     </motion.div>
@@ -173,7 +173,7 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                     <button
                         type="button"
                         onClick={onChangeTimezone}
-                        className="text-button text-ink-muted hover:text-ink-primary glass-button rounded-full min-h-11 px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
+                        className="text-button text-ink-secondary hover:text-ink-primary glass-button rounded-full min-h-11 px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
                     >
                         更改起床时间
                     </button>

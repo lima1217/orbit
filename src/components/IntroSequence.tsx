@@ -9,6 +9,8 @@ interface IntroSequenceProps {
     targetOrbitHour: number;
     /** 是否从返回过渡进入（反向动画） */
     isReturning?: boolean;
+    /** 仅在 Intro 独占屏幕时声明 main，避免与 TimeZoneHome 双地标 */
+    isPrimary?: boolean;
 }
 
 type IntroPhase = 'HALO' | 'DISSOLVING' | 'COMPLETE';
@@ -26,7 +28,8 @@ const PROGRESS_STROKE = 3.5;
 export const IntroSequence: React.FC<IntroSequenceProps> = ({
     onComplete,
     targetOrbitHour: _targetOrbitHour,
-    isReturning = false
+    isReturning = false,
+    isPrimary = false,
 }) => {
     const [phase, setPhase] = useState<IntroPhase>('HALO');
     const [holdProgress, setHoldProgress] = useState(0);
@@ -219,6 +222,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                 {phase !== 'COMPLETE' && (
                     <motion.div
                         className="relative flex flex-col items-center justify-center w-full h-full page-inline pt-safe pb-safe"
+                        role={isPrimary ? 'main' : undefined}
                         initial={{ scale: isReturning ? 1.15 : 1 }}
                         animate={phase === 'DISSOLVING' && !prefersReducedMotion ? {
                             scale: 1.15,
@@ -384,9 +388,9 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                         {phase === 'HALO' && (
                             <motion.p
                                 id="intro-hold-hint"
-                                className="relative z-10 mt-8 text-caption-small text-ink-secondary shrink-0"
+                                className="relative z-10 mt-8 text-caption text-ink-secondary shrink-0"
                                 initial={{ opacity: 0 }}
-                                animate={{ opacity: holdProgress > 0 ? 0.45 : prefersReducedMotion ? 0.85 : [0.55, 0.85, 0.55] }}
+                                animate={{ opacity: holdProgress > 0 ? 0.55 : prefersReducedMotion ? 0.95 : [0.75, 0.95, 0.75] }}
                                 transition={
                                     holdProgress > 0 || prefersReducedMotion
                                         ? { duration: 0.2 }

@@ -97,9 +97,9 @@ const WheelColumn: React.FC<WheelColumnProps> = ({
             role="spinbutton"
             tabIndex={0}
             aria-label={label}
-            aria-valuenow={selectedIndex}
-            aria-valuemin={0}
-            aria-valuemax={items.length - 1}
+            aria-valuenow={Number.parseInt(items[selectedIndex], 10) || selectedIndex}
+            aria-valuemin={Number.parseInt(items[0], 10) || 0}
+            aria-valuemax={Number.parseInt(items[items.length - 1], 10) || items.length - 1}
             aria-valuetext={items[selectedIndex]}
             onKeyDown={handleKeyDown}
             className="relative h-[144px] overflow-hidden select-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
@@ -127,7 +127,7 @@ const WheelColumn: React.FC<WheelColumnProps> = ({
                                     transition-[color,opacity] duration-200 ease-out
                                     ${isSelected
                                         ? 'text-picker-selected text-ink-primary'
-                                        : 'text-picker-option text-ink-faint/50'
+                                        : 'text-picker-option text-ink-faint'
                                     }
                                 `}
                             >
@@ -161,6 +161,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     // Date options: 今天 (0) / 昨天 (1)
     const dateOptions = ['今天', '昨天'];
     const titleId = useId();
+    const dateId = useId();
     const sheetRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
     const bodyOverflowRef = useRef('');
@@ -238,9 +239,14 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         if (!isOpen) return;
 
         previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+        // Double rAF: wait until inert has moved focus off the trigger, then land on the hour wheel
+        let innerFrame = 0;
         const frame = requestAnimationFrame(() => {
-            const firstFocusable = sheetRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-            (firstFocusable ?? sheetRef.current)?.focus();
+            innerFrame = requestAnimationFrame(() => {
+                const hourWheel = sheetRef.current?.querySelector<HTMLElement>('[role="spinbutton"]');
+                const fallback = sheetRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+                (hourWheel ?? fallback ?? sheetRef.current)?.focus({ preventScroll: true });
+            });
         });
 
         const onKeyDown = (e: KeyboardEvent) => {
@@ -258,8 +264,13 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
 
         return () => {
             cancelAnimationFrame(frame);
+            cancelAnimationFrame(innerFrame);
             document.removeEventListener('keydown', onKeyDown);
-            previouslyFocusedRef.current?.focus?.();
+            // Defer until App clears `inert` on the shell, so the opener can take focus
+            const opener = previouslyFocusedRef.current;
+            requestAnimationFrame(() => {
+                opener?.focus?.({ preventScroll: true });
+            });
         };
     }, [isOpen, required, onClose, trapFocus]);
 
@@ -291,11 +302,11 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     // dragTransition expects InertiaOptions (not spring Transition)
     const sheetSnapBack = { bounceStiffness: 500, bounceDamping: 35 };
 
-    const sheetInitial = prefersReducedMotion ? { opacity: 0 } : { y: '100%' };
+    const sheetInitial = prefersReducedMotion ? { opacity: 0 } : { y: 480 };
     const sheetAnimate = prefersReducedMotion ? { opacity: 1 } : { y: 0 };
     const sheetExit = prefersReducedMotion
         ? { opacity: 0, transition: { duration: DURATION.fast, ease: EASING.exit } }
-        : { y: '100%' };
+        : { y: 480 };
 
     return (
         <AnimatePresence onExitComplete={handleExitComplete}>
@@ -324,6 +335,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby={titleId}
+                    aria-describedby={dateId}
                     tabIndex={-1}
                     initial={sheetInitial}
                     animate={sheetAnimate}
@@ -337,7 +349,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     dragSnapToOrigin
                     dragTransition={sheetSnapBack}
                     onDragEnd={handleDragEnd}
-                    className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
+                    className="fixed bottom-0 left-0 right-0 z-50 max-h-[100dvh] rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
                     style={{
                         background: 'linear-gradient(to top, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0.75) 70%, rgba(255,255,255,0.4) 100%)',
                         backdropFilter: 'blur(20px)',
@@ -372,15 +384,15 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="absolute top-3 end-3 min-w-11 min-h-11 flex items-center justify-center text-ink-disabled/60 hover:text-ink-faint transition-[color,transform] duration-150 ease-out active:scale-[0.96]"
-                        aria-label="关闭起床时间选择"
+                        className="absolute top-3 end-3 min-w-11 min-h-11 flex items-center justify-center text-ink-muted hover:text-ink-primary transition-[color,transform] duration-150 ease-out active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2 rounded-full"
+                        aria-label="关闭"
                     >
                         <X size={18} strokeWidth={1.5} aria-hidden="true" />
                     </button>
                 )}
 
-                {/* Content — inset from edges; pb includes home indicator */}
-                <div className="page-inline pb-safe-sheet pt-2">
+                {/* Content — inset from edges; scrolls inside max-height on short viewports */}
+                <div className="page-inline pb-safe-sheet pt-2 max-h-[calc(100dvh-0.75rem)] overflow-y-auto overscroll-contain">
                     {/* Header - Poetic attitude statement */}
                     <motion.div
                         className="text-center mb-8"
@@ -388,7 +400,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1, duration: 0.4 }}
                     >
-                        <h2 id={titleId} className="text-quote text-ink-muted max-w-[16em] mx-auto">
+                        <h2 id={titleId} className="text-quote text-ink-secondary max-w-[16em] mx-auto text-pretty">
                             {required ? '睁开眼时，是几点？' : '世界有它的时钟，你按你的身体醒来'}
                         </h2>
                     </motion.div>
@@ -425,7 +437,10 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.4 }}
                     >
-                        <span className="text-caption-small text-ink-faint whitespace-nowrap">
+                        <span
+                            id={dateId}
+                            className="text-caption text-ink-muted whitespace-nowrap"
+                        >
                             ·&nbsp;{dateOptions[selectedDateIndex]}&nbsp;·
                         </span>
                     </motion.div>
@@ -452,7 +467,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                             whileTap={{ scale: 0.96 }}
                             transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
                         >
-                            {required ? '进入时区' : '更改起床时间'}
+                            {required ? '进入我的时区' : '设定起床时间'}
                         </motion.button>
                     </motion.div>
                 </div>
