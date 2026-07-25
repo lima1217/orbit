@@ -340,36 +340,38 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                                 }}
                             >
                                 <defs>
+                                    {/* Soft bloom — sRGB so warm stroke stays peach, not olive */}
                                     <filter
                                         id={`${progressGradientId}-glow`}
-                                        x="-20%"
-                                        y="-20%"
-                                        width="140%"
-                                        height="140%"
+                                        x="-30%"
+                                        y="-30%"
+                                        width="160%"
+                                        height="160%"
+                                        colorInterpolationFilters="sRGB"
                                     >
-                                        <feGaussianBlur stdDeviation="1.6" result="blur" />
+                                        <feGaussianBlur stdDeviation="1.1" result="blur" />
                                         <feMerge>
                                             <feMergeNode in="blur" />
                                             <feMergeNode in="SourceGraphic" />
                                         </feMerge>
                                     </filter>
                                 </defs>
-                                {/* Track — structure only while holding */}
+                                {/* Track — dawn hue with halo disc, structure only */}
                                 <circle
                                     cx="160"
                                     cy="160"
                                     r={PROGRESS_RADIUS}
                                     fill="none"
-                                    stroke="oklch(0.38 0.03 70 / 0.18)"
+                                    stroke="oklch(0.55 0.04 40 / 0.28)"
                                     strokeWidth={PROGRESS_STROKE}
                                 />
-                                {/* Progress fill — follows hold clock; soft retract on release */}
+                                {/* Progress fill — dawn peach (H≈40 with disc/glow); mid L for cream-bg contrast */}
                                 <circle
                                     cx="160"
                                     cy="160"
                                     r={PROGRESS_RADIUS}
                                     fill="none"
-                                    stroke="oklch(0.62 0.12 72 / 0.88)"
+                                    stroke="oklch(0.64 0.092 40)"
                                     strokeWidth={PROGRESS_STROKE}
                                     strokeLinecap="round"
                                     strokeDasharray={PROGRESS_CIRCUMFERENCE}
