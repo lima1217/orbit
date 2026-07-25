@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useId, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useId, useCallback, useEffectEvent } from 'react';
 import {
     motion,
     AnimatePresence,
@@ -14,6 +14,12 @@ const DISMISS_OFFSET_Y = 80;
 const DISMISS_VELOCITY_Y = 400;
 /** How far the sheet may travel down before elastic resistance */
 const DRAG_RANGE_Y = 220;
+
+const DATE_OPTIONS = ['今天', '昨天'];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const MINUTE_OPTIONS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+/** dragTransition expects InertiaOptions (not spring Transition) */
+const SHEET_SNAP_BACK = { bounceStiffness: 500, bounceDamping: 35 };
 
 interface WakeUpSheetProps {
     isOpen: boolean;
@@ -158,56 +164,40 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     initialMinute = 0,
     required = false,
 }) => {
-    // Date options: 今天 (0) / 昨天 (1)
-    const dateOptions = ['今天', '昨天'];
     const titleId = useId();
     const dateId = useId();
     const sheetRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
     const bodyOverflowRef = useRef('');
     const isOpenRef = useRef(isOpen);
+    // 渲染期同步：onExitComplete 可能在 effect 之前触发，不能靠 useEffect 追 isOpen
     isOpenRef.current = isOpen;
     const prefersReducedMotion = useReducedMotion();
     const dragControls = useDragControls();
     const canDragDismiss = !required && !prefersReducedMotion;
 
-    // Infer initial date based on initial time
-    const initialDateIndex = useMemo(
-        () => getInferredDateIndex(initialHour, initialMinute),
-        [initialHour, initialMinute]
-    );
-
-    const [selectedDateIndex, setSelectedDateIndex] = useState(initialDateIndex);
     const [selectedHourIndex, setSelectedHourIndex] = useState(initialHour);
     const [selectedMinuteIndex, setSelectedMinuteIndex] = useState(
-        Math.floor(initialMinute / 5)
+        () => Math.floor(initialMinute / 5)
     );
-
-    // 24-hour format: 00-23
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-    const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
     // Reset when initialHour/initialMinute changes
     useEffect(() => {
-        setSelectedDateIndex(getInferredDateIndex(initialHour, initialMinute));
         setSelectedHourIndex(initialHour);
         setSelectedMinuteIndex(Math.floor(initialMinute / 5));
     }, [initialHour, initialMinute]);
 
-    // Auto-update date when time changes (smart inference)
-    useEffect(() => {
-        const newDateIndex = getInferredDateIndex(selectedHourIndex, parseInt(minutes[selectedMinuteIndex]));
-        setSelectedDateIndex(newDateIndex);
-    }, [selectedHourIndex, selectedMinuteIndex]);
-
-    // Current selected time
-    const selectedHour = parseInt(hours[selectedHourIndex]);
-    const selectedMinute = parseInt(minutes[selectedMinuteIndex]);
+    // Current selected time + inferred 今天/昨天（渲染期推导，避免 effect 链）
+    const selectedHour = parseInt(HOUR_OPTIONS[selectedHourIndex], 10);
+    const selectedMinute = parseInt(MINUTE_OPTIONS[selectedMinuteIndex], 10);
+    const selectedDateIndex = getInferredDateIndex(selectedHour, selectedMinute);
 
     const handleConfirm = () => {
         onSelect(selectedHour, selectedMinute);
         onClose();
     };
+
+    const onCloseEvent = useEffectEvent(onClose);
 
     const trapFocus = useCallback((e: KeyboardEvent) => {
         if (e.key !== 'Tab' || !sheetRef.current) return;
@@ -252,7 +242,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && !required) {
                 e.preventDefault();
-                onClose();
+                onCloseEvent();
                 return;
             }
             trapFocus(e);
@@ -272,7 +262,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                 opener?.focus?.({ preventScroll: true });
             });
         };
-    }, [isOpen, required, onClose, trapFocus]);
+    }, [isOpen, required, trapFocus]);
 
     const handleExitComplete = useCallback(() => {
         // Re-open during exit must not unlock scroll while the sheet is open again
@@ -298,9 +288,6 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     const sheetTransition = prefersReducedMotion
         ? { duration: DURATION.fast, ease: EASING.enter }
         : { type: 'spring' as const, damping: 32, stiffness: 350 };
-
-    // dragTransition expects InertiaOptions (not spring Transition)
-    const sheetSnapBack = { bounceStiffness: 500, bounceDamping: 35 };
 
     const sheetInitial = prefersReducedMotion ? { opacity: 0 } : { y: 480 };
     const sheetAnimate = prefersReducedMotion ? { opacity: 1 } : { y: 0 };
@@ -347,7 +334,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     dragConstraints={{ top: 0, bottom: DRAG_RANGE_Y }}
                     dragElastic={{ top: 0, bottom: 0.2 }}
                     dragSnapToOrigin
-                    dragTransition={sheetSnapBack}
+                    dragTransition={SHEET_SNAP_BACK}
                     onDragEnd={handleDragEnd}
                     className="fixed bottom-0 left-0 right-0 z-50 max-h-[100dvh] rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
                     style={{
@@ -415,14 +402,14 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         {/* Time Picker - 2 columns: Hour : Minute */}
                         <div className="flex items-center justify-center relative z-10" role="group" aria-label="起床时间">
                             <WheelColumn
-                                items={hours}
+                                items={HOUR_OPTIONS}
                                 selectedIndex={selectedHourIndex}
                                 onSelect={setSelectedHourIndex}
                                 label="小时"
                             />
                             <span className="text-picker-selected text-ink-muted mx-3" aria-hidden="true">:</span>
                             <WheelColumn
-                                items={minutes}
+                                items={MINUTE_OPTIONS}
                                 selectedIndex={selectedMinuteIndex}
                                 onSelect={setSelectedMinuteIndex}
                                 label="分钟"
@@ -441,7 +428,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                             id={dateId}
                             className="text-caption text-ink-muted whitespace-nowrap"
                         >
-                            ·&nbsp;{dateOptions[selectedDateIndex]}&nbsp;·
+                            ·&nbsp;{DATE_OPTIONS[selectedDateIndex]}&nbsp;·
                         </span>
                     </motion.div>
 

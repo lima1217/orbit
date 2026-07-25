@@ -81,7 +81,8 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
             initial={{ opacity: enterFromIntro ? 1 : 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: enterFromIntro ? 0 : 0.5 }}
-            className="fixed inset-0 flex flex-col"
+            // absolute：与 App 壳同坐标系；父级有 scale transform 时 fixed 会错位到 100vh
+            className="absolute inset-0 flex flex-col"
         >
             <SkyBackground
                 orbitHour={currentTime}

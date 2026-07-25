@@ -26,11 +26,21 @@
   html {
     @apply antialiased;
     font-optical-sizing: auto;
+    /* dvh：避开手机 100vh 含地址栏导致的整页跳动 */
+    height: 100%;
+    height: 100dvh;
   }
 
   body {
     @apply bg-dawn-cream text-ink-secondary font-sans overflow-hidden;
     @apply selection:bg-blush-soft/40 selection:text-ink-primary;
+    height: 100%;
+    height: 100dvh;
+  }
+
+  #root {
+    height: 100%;
+    height: 100dvh;
   }
 
   /* Keyboard focus: visible ring for :focus-visible only */

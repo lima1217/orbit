@@ -149,7 +149,7 @@ function App() {
     <>
       {/* Background UI is inert while the sheet is open (focus + AT isolation) */}
       <div
-        className="relative min-h-screen overflow-hidden"
+        className="relative h-dvh overflow-hidden"
         inert={isSheetOpen}
       >
         {/* TimeZoneHome - 在 timezone/reveal/returning 阶段显示 */}
@@ -180,7 +180,7 @@ function App() {
                 duration: prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S,
                 ease: EASING.out,
               }}
-              className="absolute inset-0"
+              className="absolute inset-0 origin-center"
             >
               <TimeZoneHome
                 wakeUpTime={wakeUpTime}

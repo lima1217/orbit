@@ -12,26 +12,26 @@ interface SkyBackgroundProps {
 /**
  * Ambient cloud — soft tint blobs matching Intro atmosphere
  */
+const AMBIENT_CLOUD_CONFIG = {
+    'top-left': {
+        className: 'top-16 left-8 w-36 h-36',
+        background: 'oklch(0.90 0.02 55 / 0.28)',
+        blur: '70px',
+        delay: 0,
+    },
+    'bottom-right': {
+        className: 'bottom-36 right-8 w-44 h-44',
+        background: 'oklch(0.86 0.035 20 / 0.22)',
+        blur: '90px',
+        delay: 1.5,
+    },
+} as const;
+
 const AmbientCloud: React.FC<{
     position: 'top-left' | 'bottom-right';
 }> = ({ position }) => {
     const prefersReducedMotion = useReducedMotion();
-    const configs = {
-        'top-left': {
-            className: 'top-16 left-8 w-36 h-36',
-            background: 'oklch(0.90 0.02 55 / 0.28)',
-            blur: '70px',
-            delay: 0,
-        },
-        'bottom-right': {
-            className: 'bottom-36 right-8 w-44 h-44',
-            background: 'oklch(0.86 0.035 20 / 0.22)',
-            blur: '90px',
-            delay: 1.5,
-        },
-    };
-
-    const config = configs[position];
+    const config = AMBIENT_CLOUD_CONFIG[position];
 
     return (
         <motion.div

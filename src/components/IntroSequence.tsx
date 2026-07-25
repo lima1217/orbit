@@ -38,6 +38,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
     const hasStartedAudioRef = useRef(false);
     const hasEnteredRef = useRef(false);
     const pressTimerRef = useRef<number | null>(null);
+    const dissolveTimerRef = useRef<number | null>(null);
 
     // 用户首次触摸/点击页面时播放环境音（必须由用户手势触发）
     const startAudioOnInteraction = useCallback(() => {
@@ -48,6 +49,19 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
         }
     }, []);
 
+    const beginDissolve = useCallback(() => {
+        setPhase('DISSOLVING');
+        // 在事件路径通知父级，避免 useEffect 同步 prop callback
+        onComplete();
+        if (dissolveTimerRef.current != null) {
+            clearTimeout(dissolveTimerRef.current);
+        }
+        dissolveTimerRef.current = window.setTimeout(() => {
+            dissolveTimerRef.current = null;
+            setPhase('COMPLETE');
+        }, prefersReducedMotion ? 0 : INTRO_DISSOLVE_MS);
+    }, [onComplete, prefersReducedMotion]);
+
     const enter = useCallback(() => {
         if (phase !== 'HALO' || hasEnteredRef.current) return;
         hasEnteredRef.current = true;
@@ -56,7 +70,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
 
         if (prefersReducedMotion) {
             setIsPressed(false);
-            setPhase('DISSOLVING');
+            beginDissolve();
             return;
         }
 
@@ -65,28 +79,19 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
             setIsPressed(false);
             pressTimerRef.current = window.setTimeout(() => {
                 pressTimerRef.current = null;
-                setPhase('DISSOLVING');
+                beginDissolve();
             }, PRESS_UP_MS);
         }, PRESS_DOWN_MS);
-    }, [phase, startAudioOnInteraction, prefersReducedMotion]);
+    }, [phase, startAudioOnInteraction, prefersReducedMotion, beginDissolve]);
 
     useEffect(() => () => {
         if (pressTimerRef.current != null) {
             clearTimeout(pressTimerRef.current);
         }
-    }, []);
-
-    useEffect(() => {
-        if (phase === 'DISSOLVING') {
-            onComplete();
-
-            const timer = setTimeout(() => {
-                setPhase('COMPLETE');
-            }, prefersReducedMotion ? 0 : INTRO_DISSOLVE_MS);
-
-            return () => clearTimeout(timer);
+        if (dissolveTimerRef.current != null) {
+            clearTimeout(dissolveTimerRef.current);
         }
-    }, [phase, onComplete, prefersReducedMotion]);
+    }, []);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (phase !== 'HALO') return;
@@ -109,8 +114,8 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
 
     return (
         <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden select-none"
-            onClick={startAudioOnInteraction}
+            className="absolute inset-0 z-[100] flex items-center justify-center overflow-hidden select-none"
+            onPointerDown={startAudioOnInteraction}
             initial={{ opacity: isReturning ? 0 : 1 }}
             animate={isDissolving ? { opacity: 0 } : { opacity: 1 }}
             transition={{

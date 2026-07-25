@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useEffect, useId, useEffectEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AMBIENT_SOUNDS, AmbientSound } from '../constants/ambientSounds';
 import { SoundIcon } from './icons/SoundIcon';
@@ -43,6 +43,10 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
     const triggerRef = useRef<HTMLButtonElement>(null);
     const listId = useId();
 
+    const notifyExpandChange = useEffectEvent((expanded: boolean) => {
+        onExpandChange?.(expanded);
+    });
+
     const setExpanded = (open: boolean) => {
         setIsExpanded(open);
         onExpandChange?.(open);
@@ -54,7 +58,7 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsExpanded(false);
-                onExpandChange?.(false);
+                notifyExpandChange(false);
             }
         };
 
@@ -62,14 +66,14 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
             if (event.key === 'Escape') {
                 event.preventDefault();
                 setIsExpanded(false);
-                onExpandChange?.(false);
+                notifyExpandChange(false);
                 triggerRef.current?.focus();
             }
         };
 
         const timer = setTimeout(() => {
             document.addEventListener('mousedown', handleClickOutside);
-            document.addEventListener('touchstart', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside, { passive: true });
             document.addEventListener('keydown', handleEscape);
         }, 100);
 
@@ -79,7 +83,7 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
             document.removeEventListener('touchstart', handleClickOutside);
             document.removeEventListener('keydown', handleEscape);
         };
-    }, [isExpanded, onExpandChange]);
+    }, [isExpanded]);
 
     const selectedSounds = AMBIENT_SOUNDS
         .filter(s => selectedIds.includes(s.id))
