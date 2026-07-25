@@ -100,11 +100,12 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
     const dissolveDuration = prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S;
     const isDissolving = phase === 'DISSOLVING' || phase === 'COMPLETE';
 
+    // 不用动画 filter:blur —— 整页模糊会拖垮移动端主线程（子树已有静态大半径 blur）
     const contentMotion = prefersReducedMotion
-        ? { scale: 1, filter: 'blur(0px)' }
+        ? { scale: 1 }
         : isDissolving
-          ? { scale: 0.97, filter: 'blur(2px)' }
-          : { scale: 1, filter: 'blur(0px)' };
+          ? { scale: 0.97 }
+          : { scale: 1 };
 
     return (
         <motion.div
@@ -143,10 +144,10 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                         role={isPrimary ? 'main' : undefined}
                         initial={
                             prefersReducedMotion
-                                ? { scale: 1, filter: 'blur(0px)' }
+                                ? { scale: 1 }
                                 : isReturning
-                                  ? { scale: 0.97, filter: 'blur(2px)' }
-                                  : { scale: 1, filter: 'blur(0px)' }
+                                  ? { scale: 0.97 }
+                                  : { scale: 1 }
                         }
                         animate={contentMotion}
                         transition={{

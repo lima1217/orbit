@@ -161,20 +161,20 @@ function App() {
                 prefersReducedMotion
                   ? { opacity: phase === 'returning' ? 1 : 0 }
                   : phase === 'returning'
-                    ? { opacity: 1, scale: 1, filter: 'blur(0px)' }
-                    : { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
+                    ? { opacity: 1, scale: 1 }
+                    : { opacity: 0, scale: 0.97 }
               }
               animate={
                 prefersReducedMotion
                   ? { opacity: phase === 'returning' ? 0 : 1 }
                   : phase === 'returning'
-                    ? { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
-                    : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+                    ? { opacity: 0, scale: 0.97 }
+                    : { opacity: 1, scale: 1 }
               }
               exit={
                 prefersReducedMotion
                   ? { opacity: 0 }
-                  : { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
+                  : { opacity: 0, scale: 0.97 }
               }
               transition={{
                 duration: prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S,
