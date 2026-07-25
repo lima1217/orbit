@@ -6,7 +6,7 @@ import {
 } from '../constants/timezones';
 import { ENTRANCE_DELAYS, FADE_IN } from '../constants/animationConfig';
 import { SkyBackground } from './SkyBackground';
-import { getSyncStatement, getSceneDescription } from '../constants/cityPoetry';
+import { getSyncStatement } from '../constants/cityPoetry';
 import { InlineSoundSelector } from './InlineSoundSelector';
 import { useAmbientPlayer } from '../hooks/useAmbientPlayer';
 
@@ -19,7 +19,7 @@ interface TimeZoneHomeProps {
 }
 
 export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
-    wakeUpTime,
+    wakeUpTime: _wakeUpTime,
     timezone,
     onChangeTimezone,
     onReturnToIntro,
@@ -50,10 +50,10 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
 
     // 🎵 环境音效 - 自动播放
     const { selectedIds, toggleSound } = useAmbientPlayer();
+    const [soundPickerOpen, setSoundPickerOpen] = useState(false);
 
-    // 获取两行诗意描述
     const syncStatement = getSyncStatement(timezone.cityCN);
-    const sceneDescription = getSceneDescription(Math.floor(currentTime));
+    const formattedTime = formatOrbitTime(currentTime);
 
     return (
         <motion.div
@@ -72,53 +72,68 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
             {/* Content - 过渡期间隐藏，避免与 IntroSequence 冲突 */}
             <AnimatePresence>
                 {!isTransitioningFromIntro && (
-                    <motion.div
+                    <motion.main
+                        id="main"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.3, duration: 0.6 }}
-                        className="relative z-10 flex-1 flex flex-col items-center justify-center px-6"
+                        className="relative z-10 flex-1 flex flex-col items-center justify-center page-inline pt-safe pb-safe-lg"
                     >
                         {/* City & Two-line Poetic Description */}
                         <motion.div
                             {...FADE_IN}
-                            transition={{ delay: ENTRANCE_DELAYS.header, duration: 0.6 }}
-                            className="text-center mb-8"
+                            animate={{ opacity: soundPickerOpen ? 0.35 : 1 }}
+                            transition={{
+                                delay: soundPickerOpen ? 0 : ENTRANCE_DELAYS.header,
+                                duration: 0.3,
+                                ease: 'easeOut',
+                            }}
+                            className="text-center mb-8 max-w-sm mx-auto"
                         >
-                            <h2 className="text-headline text-gray-700 mb-4">
-                                {timezone.emoji} {timezone.city}
-                            </h2>
-                            <div className="space-y-1">
-                                <p className="text-caption text-gray-600/90">
-                                    {syncStatement}
-                                </p>
-                                <p className="text-caption text-gray-500/70">
-                                    {sceneDescription}
-                                </p>
-                            </div>
+                            <h1 className="text-headline text-ink-primary mb-4 text-balance">
+                                <span aria-hidden="true">{timezone.emoji}</span>{' '}
+                                <span translate="no">{timezone.city}</span>
+                            </h1>
+                            <p className="text-quote text-ink-muted">
+                                {syncStatement}
+                            </p>
                         </motion.div>
 
-                        {/* Main Time Display */}
+                        {/* Main Time Display — timer role, not live (avoids second-by-second chatter) */}
                         <motion.div
                             {...FADE_IN}
-                            transition={{ delay: ENTRANCE_DELAYS.primary, duration: 0.6 }}
+                            animate={{ opacity: soundPickerOpen ? 0.18 : 1 }}
+                            transition={{
+                                delay: soundPickerOpen ? 0 : ENTRANCE_DELAYS.primary,
+                                duration: 0.3,
+                                ease: 'easeOut',
+                            }}
                             className="text-center mb-8"
                         >
-                            <div className="text-display text-gray-800">
-                                {formatOrbitTime(currentTime)}
-                            </div>
+                            <p
+                                role="timer"
+                                aria-live="off"
+                                aria-atomic="true"
+                                aria-label={`身体时间 ${formattedTime}`}
+                                className="text-display text-ink-primary tabular-nums"
+                            >
+                                {formattedTime}
+                            </p>
                         </motion.div>
 
-                        {/* 🎵 内嵌式音效选择器 - 时间下方 */}
+                        {/* 🎵 内嵌式音效选择器 */}
                         <motion.div
                             {...FADE_IN}
                             transition={{ delay: ENTRANCE_DELAYS.primary + 0.2, duration: 0.5 }}
+                            className="relative w-full max-w-xs min-h-11"
                         >
                             <InlineSoundSelector
                                 selectedIds={selectedIds}
                                 onToggleSound={toggleSound}
+                                onExpandChange={setSoundPickerOpen}
                             />
                         </motion.div>
-                    </motion.div>
+                    </motion.main>
                 )}
             </AnimatePresence>
 
@@ -127,13 +142,14 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                 <motion.div
                     {...FADE_IN}
                     transition={{ delay: ENTRANCE_DELAYS.footer, duration: 0.6 }}
-                    className="absolute bottom-10 left-0 right-0 text-center z-50"
+                    className="absolute inset-x-0 bottom-0 z-50 flex justify-center page-inline pb-safe-lg"
                 >
                     <button
+                        type="button"
                         onClick={onChangeTimezone}
-                        className="text-button text-gray-500/60 hover:text-gray-700 hover:opacity-100 transition-all cursor-pointer"
+                        className="text-button text-ink-muted hover:text-ink-primary glass-button rounded-full min-h-11 px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
                     >
-                        选择起床时间
+                        更改起床时间
                     </button>
                 </motion.div>
             )}

@@ -10,25 +10,22 @@ interface SkyBackgroundProps {
 }
 
 /**
- * Ambient cloud effect with organic breathing animation
- * Creates a subtle, living atmosphere that complements the celestial body
+ * Ambient cloud — soft tint blobs matching Intro atmosphere
  */
 const AmbientCloud: React.FC<{
     position: 'top-left' | 'bottom-right';
 }> = ({ position }) => {
     const configs = {
         'top-left': {
-            className: 'top-20 left-10 w-32 h-32',
-            background: 'rgba(255, 255, 255, 0.15)',
-            blur: '60px',
-            duration: 7,
+            className: 'top-16 left-8 w-36 h-36',
+            background: 'oklch(0.90 0.02 55 / 0.28)',
+            blur: '70px',
             delay: 0,
         },
         'bottom-right': {
-            className: 'bottom-40 right-10 w-40 h-40',
-            background: 'rgba(255, 182, 193, 0.2)',
-            blur: '80px',
-            duration: 8,
+            className: 'bottom-36 right-8 w-44 h-44',
+            background: 'oklch(0.86 0.035 20 / 0.22)',
+            blur: '90px',
             delay: 1.5,
         },
     };
@@ -60,15 +57,17 @@ const AmbientCloud: React.FC<{
 };
 
 /**
- * Celestial body (sun or moon) with living, breathing effects
- * Bridges the gap between intro's magical feel and daily use
+ * Celestial body — warm material disc (same language as Intro enter orb)
  */
-const CelestialBody: React.FC<{ orbitHour: number; onClick?: () => void }> = ({ orbitHour, onClick }) => {
+const CelestialBody: React.FC<{
+    orbitHour: number;
+    onClick?: () => void;
+    hidden?: boolean;
+}> = ({ orbitHour, onClick, hidden = false }) => {
     const daytime = isDaytime(orbitHour);
     const position = calculateCelestialPosition(orbitHour);
+    const style = daytime ? CELESTIAL_STYLES.sun : CELESTIAL_STYLES.moon;
 
-    // Breathing animation - 让天体真正"活着"
-    // Jobs: "生命感需要被感知到才有意义"
     const breathingAnimation = {
         scale: BREATHING.celestial.scale,
         opacity: BREATHING.celestial.opacity,
@@ -81,147 +80,96 @@ const CelestialBody: React.FC<{ orbitHour: number; onClick?: () => void }> = ({ 
     };
 
     return (
-        <motion.button
-            className="absolute cursor-pointer z-20"
+        <div
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
             style={{
                 left: `${position.left}%`,
-                top: `${position.top}%`,
-                transition: `left ${DURATION.glacial}s ease-in-out, top ${DURATION.glacial}s ease-in-out`
+                top: `max(${position.top}%, calc(env(safe-area-inset-top, 0px) + 12px))`,
+                transition: `left ${DURATION.glacial}s ease-in-out, top ${DURATION.glacial}s ease-in-out`,
+                pointerEvents: hidden ? 'none' : undefined,
             }}
-            onClick={onClick}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
         >
-            {/* Container with all layers */}
-            <motion.div
-                className="relative"
-                animate={breathingAnimation}
-                transition={breathingTransition}
+            <motion.button
+                type="button"
+                className="relative cursor-pointer min-w-11 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
+                onClick={onClick}
+                disabled={hidden || !onClick}
+                tabIndex={hidden ? -1 : 0}
+                aria-label="返回开场页"
+                whileHover={hidden ? undefined : { scale: 1.06 }}
+                whileTap={hidden ? undefined : { scale: 0.96 }}
+                transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
             >
-                {daytime ? (
-                    // ========== SUN - Warm Living Glow ==========
-                    <>
-                        {/* Outer atmosphere - very subtle warm haze */}
-                        <motion.div
-                            className="absolute -inset-8 rounded-full blur-[30px]"
-                            style={{
-                                background: 'radial-gradient(circle, rgba(252,211,77,0.15) 20%, rgba(255,182,193,0.08) 50%, transparent 70%)'
-                            }}
-                            animate={{
-                                opacity: BREATHING.glow.opacity,
-                                scale: BREATHING.glow.scale,
-                            }}
-                            transition={{
-                                duration: BREATHING.glow.duration,
-                                repeat: Infinity,
-                                ease: EASING.breathing,
-                            }}
-                        />
+                <motion.div
+                    className="relative"
+                    animate={breathingAnimation}
+                    transition={breathingTransition}
+                >
+                    {/* Soft outer veil — atmosphere, not bloom glare */}
+                    <motion.div
+                        className="absolute -inset-6 rounded-full blur-[28px] pointer-events-none"
+                        style={{
+                            background: daytime
+                                ? 'radial-gradient(circle, oklch(0.86 0.05 55 / 0.22) 0%, transparent 70%)'
+                                : 'radial-gradient(circle, oklch(0.82 0.04 296 / 0.18) 0%, transparent 70%)',
+                        }}
+                        animate={{
+                            opacity: [0.45, 0.65, 0.45],
+                            scale: BREATHING.glow.scale,
+                        }}
+                        transition={{
+                            duration: BREATHING.glow.duration,
+                            repeat: Infinity,
+                            ease: EASING.breathing,
+                        }}
+                        aria-hidden="true"
+                    />
 
-                        {/* Middle glow ring */}
-                        <motion.div
-                            className="absolute -inset-4 rounded-full blur-[15px]"
-                            style={{
-                                background: 'radial-gradient(circle, rgba(252,211,77,0.25) 30%, rgba(255,255,255,0.1) 60%, transparent 80%)'
-                            }}
-                            animate={{
-                                opacity: [0.65, 0.92, 0.65],
-                            }}
-                            transition={{
-                                duration: BREATHING.glow.duration * 0.7,
-                                repeat: Infinity,
-                                ease: EASING.breathing,
-                                delay: 0.3,
-                            }}
-                        />
-
-                        {/* Core sun body */}
-                        <div
-                            className="relative w-16 h-16 rounded-full bg-gradient-to-br from-soul-gold via-amber-300 to-blush-soft"
-                            style={{
-                                boxShadow: '0 0 40px rgba(252,211,77,0.5), 0 0 80px rgba(252,211,77,0.2), inset -2px -2px 8px rgba(255,255,255,0.3)'
-                            }}
-                        >
-                            {/* Inner highlight */}
-                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 via-transparent to-transparent" />
-                        </div>
-                    </>
-                ) : (
-                    // ========== MOON - Ethereal Zen Sphere ==========
-                    <>
-                        {/* Outer atmosphere - soft lavender haze */}
-                        <motion.div
-                            className="absolute -inset-8 rounded-full blur-[30px]"
-                            style={{
-                                background: 'radial-gradient(circle, rgba(167,139,250,0.12) 20%, rgba(196,181,253,0.06) 50%, transparent 70%)'
-                            }}
-                            animate={{
-                                opacity: BREATHING.glow.opacity,
-                                scale: BREATHING.glow.scale,
-                            }}
-                            transition={{
-                                duration: BREATHING.glow.duration,
-                                repeat: Infinity,
-                                ease: EASING.breathing,
-                            }}
-                        />
-
-                        {/* Middle glow ring */}
-                        <motion.div
-                            className="absolute -inset-4 rounded-full blur-[15px]"
-                            style={{
-                                background: 'radial-gradient(circle, rgba(255,255,255,0.2) 30%, rgba(167,139,250,0.1) 60%, transparent 80%)'
-                            }}
-                            animate={{
-                                opacity: [0.55, 0.85, 0.55],
-                            }}
-                            transition={{
-                                duration: BREATHING.glow.duration * 0.7,
-                                repeat: Infinity,
-                                ease: EASING.breathing,
-                                delay: 0.3,
-                            }}
-                        />
-
-                        {/* Core moon body */}
-                        <div
-                            className="relative w-16 h-16 rounded-full"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,240,255,0.9) 30%, rgba(196,181,253,0.5) 100%)',
-                                boxShadow: '0 0 30px rgba(167, 139, 250, 0.25), 0 0 60px rgba(167, 139, 250, 0.1), inset -3px -3px 8px rgba(139, 92, 246, 0.1), inset 2px 2px 6px rgba(255, 255, 255, 0.9)'
-                            }}
-                        >
-                            {/* Inner highlight - pearly sheen */}
-                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/50 via-white/20 to-transparent" />
-
-                            {/* Subtle texture hint */}
-                            <div
-                                className="absolute inset-0 rounded-full opacity-20"
-                                style={{
-                                    background: 'radial-gradient(circle at 70% 30%, rgba(139,92,246,0.15) 0%, transparent 30%)'
-                                }}
-                            />
-                        </div>
-                    </>
-                )}
-            </motion.div>
-        </motion.button>
+                    {/* Material core */}
+                    <div
+                        className="relative w-14 h-14 rounded-full"
+                        style={{
+                            background: style.gradient,
+                            boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 6px oklch(0.45 0.04 40 / 0.08), ${style.shadow}`,
+                        }}
+                    >
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-transparent" />
+                    </div>
+                </motion.div>
+            </motion.button>
+        </div>
     );
 };
 
 /**
- * SkyBackground Component
- * Renders the dynamic sky with gradient, celestial body, and ambient effects
+ * SkyBackground — soft washes continuous with IntroSequence
  */
 export const SkyBackground: React.FC<SkyBackgroundProps> = ({ orbitHour, onCelestialClick, hideCelestial = false }) => {
     const gradient = getSkyGradient(orbitHour);
 
     return (
         <>
+            {/* Soft base so transitions never flash pure cream/white */}
+            <div
+                className="absolute inset-0"
+                style={{ background: 'oklch(0.855 0.028 50)' }}
+                aria-hidden="true"
+            />
+
             {/* Sky gradient */}
             <div
-                className={`absolute inset-0 bg-gradient-to-b ${gradient} transition-all duration-[3000ms]`}
+                className="absolute inset-0 transition-[background] duration-[3000ms] ease-out"
+                style={{ background: gradient }}
+                aria-hidden="true"
+            />
+
+            {/* Soft vignette — same rest-the-eyes treatment as Intro */}
+            <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                    background:
+                        'radial-gradient(ellipse 70% 60% at 50% 42%, transparent 35%, oklch(0.55 0.03 70 / 0.14) 100%)',
+                }}
                 aria-hidden="true"
             />
 
@@ -229,17 +177,21 @@ export const SkyBackground: React.FC<SkyBackgroundProps> = ({ orbitHour, onCeles
             <AmbientCloud position="top-left" />
             <AmbientCloud position="bottom-right" />
 
-            {/* Sun or Moon - clickable to open settings, hidden during intro transition */}
+            {/* Sun or Moon */}
             <motion.div
                 initial={{ opacity: hideCelestial ? 0 : 1 }}
                 animate={{ opacity: hideCelestial ? 0 : 1 }}
                 transition={{
-                    duration: hideCelestial ? 0 : 1.2, // 淡入时间 1.2 秒，与 IntroSequence 淡出交叉
+                    duration: hideCelestial ? 0 : 1.2,
                     ease: [0.22, 0.68, 0.35, 1.0],
-                    delay: hideCelestial ? 0 : 0.3 // 稍微延迟开始，让淡出先进行一点
+                    delay: hideCelestial ? 0 : 0.3,
                 }}
             >
-                <CelestialBody orbitHour={orbitHour} onClick={onCelestialClick} />
+                <CelestialBody
+                    orbitHour={orbitHour}
+                    onClick={onCelestialClick}
+                    hidden={hideCelestial}
+                />
             </motion.div>
         </>
     );

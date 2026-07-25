@@ -7,53 +7,89 @@ export default {
     theme: {
         extend: {
             colors: {
-                // 「晨曦星海」色系 - Monument Valley Blue-Pink Palette
+                // 「晨曦星海」色系 — Monument Valley × Healing Cosmos
+                // Decorative hues stay soft; ink / *-ink are for text & controls.
+                // / <alpha-value> enables Tailwind opacity modifiers (bg-*/40 etc.)
                 dawn: {
-                    cream: '#FDF8F3',  // 晨曦奶油 - 背景基底
-                    blush: '#FFE4E1',  // 晨曦粉霞 - 柔和粉色背景
+                    cream: 'oklch(0.982 0.009 67.7 / <alpha-value>)',
+                    blush: 'oklch(0.940 0.030 25.3 / <alpha-value>)',
                 },
                 sky: {
-                    mint: '#E0F4F1',   // 天际薄荷 - 明亮薄荷绿
-                    aqua: '#A8E6CF',   // 天际水色 - 清透青绿
-                    blue: '#87CEEB',   // 天际蓝 - 主天空蓝
-                    deep: '#5BA4C9',   // 天际深蓝 - 渐变深处
+                    mint: 'oklch(0.952 0.021 186.0 / <alpha-value>)',
+                    aqua: 'oklch(0.877 0.071 169.7 / <alpha-value>)',
+                    blue: 'oklch(0.815 0.082 225.8 / <alpha-value>)',
+                    deep: 'oklch(0.686 0.091 232.3 / <alpha-value>)',
+                    ink: 'oklch(0.420 0.060 232 / <alpha-value>)',
                 },
                 blush: {
-                    soft: '#FFB6C1',   // 樱瓣粉 - 柔和樱花粉
-                    rose: '#E8A0B4',   // 玫瑰粉 - 中等粉色
-                    deep: '#C48B9F',   // 深玫瑰 - 深粉点缀
+                    soft: 'oklch(0.847 0.086 9.1 / <alpha-value>)',
+                    rose: 'oklch(0.781 0.089 1.2 / <alpha-value>)',
+                    deep: 'oklch(0.699 0.074 356.4 / <alpha-value>)',
+                    ink: 'oklch(0.420 0.060 356 / <alpha-value>)',
                 },
                 lavender: {
-                    soft: '#DCD0FF',   // 柔紫 - 薰衣草淡紫
-                    deep: '#A78BFA',   // 深紫 - 紫色点缀
+                    soft: 'oklch(0.882 0.065 296.7 / <alpha-value>)',
+                    deep: 'oklch(0.709 0.159 293.5 / <alpha-value>)',
+                    ink: 'oklch(0.420 0.090 294 / <alpha-value>)',
                 },
                 soul: {
-                    gold: '#FCD34D',   // 灵魂金 - 太阳/高亮
-                    warm: '#FBBF24',   // 暖金 - 点缀
+                    gold: 'oklch(0.879 0.153 91.6 / <alpha-value>)',
+                    warm: 'oklch(0.837 0.164 84.4 / <alpha-value>)',
+                    ink: 'oklch(0.480 0.100 85 / <alpha-value>)',
                 },
-                // Dream 色系 - 用于 IntroSequence 光晕效果
+                // 语义墨色 — 与 dawn-cream 同色相的暖中性，替代 cool gray
+                ink: {
+                    primary: 'oklch(0.280 0.018 70 / <alpha-value>)',
+                    secondary: 'oklch(0.400 0.016 70 / <alpha-value>)',
+                    muted: 'oklch(0.500 0.014 70 / <alpha-value>)',
+                    faint: 'oklch(0.620 0.012 70 / <alpha-value>)',
+                    disabled: 'oklch(0.720 0.010 70 / <alpha-value>)',
+                    inverse: 'oklch(0.982 0.009 67.7 / <alpha-value>)',
+                },
+                // 主操作面：一屏一个实心强调
+                action: {
+                    DEFAULT: 'oklch(0.320 0.025 70 / <alpha-value>)',
+                    hover: 'oklch(0.280 0.025 70 / <alpha-value>)',
+                    fg: 'oklch(0.982 0.009 67.7 / <alpha-value>)',
+                },
+                // Dream 别名 → 同一套 token（IntroSequence 兼容）
                 dream: {
-                    cream: '#FDF8F3',  // 梦境奶油白
-                    pink: '#FFB6C1',   // 梦境樱花粉
-                    sky: '#87CEEB',    // 梦境天空蓝
-                    purple: '#DCD0FF', // 梦境薰衣草
-                    gold: '#FCD34D',   // 梦境灵魂金
-                    text: '#4A5568',   // 梦境文字色
+                    cream: 'oklch(0.982 0.009 67.7 / <alpha-value>)',
+                    pink: 'oklch(0.847 0.086 9.1 / <alpha-value>)',
+                    sky: 'oklch(0.815 0.082 225.8 / <alpha-value>)',
+                    purple: 'oklch(0.882 0.065 296.7 / <alpha-value>)',
+                    gold: 'oklch(0.879 0.153 91.6 / <alpha-value>)',
+                    text: 'oklch(0.400 0.016 70 / <alpha-value>)',
                 },
                 orbit: {
-                    400: '#2DD4BF',    // Orbit Teal (保留)
+                    400: '#2DD4BF',
                     500: '#14B8A6',
                 },
                 glass: {
-                    100: 'rgba(255, 255, 255, 0.1)',
-                    200: 'rgba(255, 255, 255, 0.2)',
-                    300: 'rgba(255, 255, 255, 0.3)',
+                    100: 'oklch(1 0 0 / 0.1)',
+                    200: 'oklch(1 0 0 / 0.2)',
+                    300: 'oklch(1 0 0 / 0.3)',
                 },
             },
             fontFamily: {
-                // 统一字体：Inter - 现代 UI 标杆
-                // 中文回退：PingFang SC (macOS) → Hiragino Sans GB → Microsoft YaHei (Windows)
-                sans: ['Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'sans-serif'],
+                sans: [
+                    'Inter',
+                    'PingFang SC',
+                    'Hiragino Sans GB',
+                    'Microsoft YaHei',
+                    'Noto Sans SC',
+                    'Noto Sans CJK SC',
+                    'sans-serif',
+                ],
+                quote: [
+                    'LXGW WenKai',
+                    'PingFang SC',
+                    'Hiragino Sans GB',
+                    'Microsoft YaHei',
+                    'Noto Sans SC',
+                    'Noto Sans CJK SC',
+                    'serif',
+                ],
             },
             animation: {
                 'float': 'float 6s ease-in-out infinite',

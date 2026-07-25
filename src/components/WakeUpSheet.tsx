@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useId, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -8,6 +8,8 @@ interface WakeUpSheetProps {
     onSelect: (hour: number, minute: number) => void;
     initialHour?: number;
     initialMinute?: number;
+    /** 首次校准时禁止关闭，必须设定起床时间 */
+    required?: boolean;
 }
 
 interface WheelColumnProps {
@@ -15,13 +17,18 @@ interface WheelColumnProps {
     selectedIndex: number;
     onSelect: (index: number) => void;
     itemHeight?: number;
+    label: string;
 }
+
+const FOCUSABLE_SELECTOR =
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const WheelColumn: React.FC<WheelColumnProps> = ({
     items,
     selectedIndex,
     onSelect,
-    itemHeight = 48
+    itemHeight = 48,
+    label,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [isScrolling, setIsScrolling] = useState(false);
@@ -52,8 +59,38 @@ const WheelColumn: React.FC<WheelColumnProps> = ({
         }, 150);
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        let next = selectedIndex;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            next = Math.max(0, selectedIndex - 1);
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            next = Math.min(items.length - 1, selectedIndex + 1);
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            next = 0;
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            next = items.length - 1;
+        } else {
+            return;
+        }
+        if (next !== selectedIndex) onSelect(next);
+    };
+
     return (
-        <div className="relative h-[144px] overflow-hidden">
+        <div
+            role="spinbutton"
+            tabIndex={0}
+            aria-label={label}
+            aria-valuenow={selectedIndex}
+            aria-valuemin={0}
+            aria-valuemax={items.length - 1}
+            aria-valuetext={items[selectedIndex]}
+            onKeyDown={handleKeyDown}
+            className="relative h-[144px] overflow-hidden select-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
+        >
             <div
                 ref={containerRef}
                 onScroll={handleScroll}
@@ -62,21 +99,22 @@ const WheelColumn: React.FC<WheelColumnProps> = ({
                     paddingTop: itemHeight,
                     paddingBottom: itemHeight,
                 }}
+                aria-hidden="true"
             >
                 {items.map((item, index) => {
                     const isSelected = index === selectedIndex;
                     return (
                         <div
                             key={item}
-                            className="snap-center flex items-center justify-center transition-all duration-200"
+                            className="snap-center flex items-center justify-center"
                             style={{ height: itemHeight }}
                         >
                             <span
                                 className={`
-                                    transition-all duration-300
+                                    transition-[color,opacity] duration-200 ease-out
                                     ${isSelected
-                                        ? 'text-picker-selected text-gray-800'
-                                        : 'text-picker-option text-gray-400/50'
+                                        ? 'text-picker-selected text-ink-primary'
+                                        : 'text-picker-option text-ink-faint/50'
                                     }
                                 `}
                             >
@@ -104,10 +142,14 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     onClose,
     onSelect,
     initialHour = 7,
-    initialMinute = 0
+    initialMinute = 0,
+    required = false,
 }) => {
     // Date options: 今天 (0) / 昨天 (1)
     const dateOptions = ['今天', '昨天'];
+    const titleId = useId();
+    const sheetRef = useRef<HTMLDivElement>(null);
+    const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
     // Infer initial date based on initial time
     const initialDateIndex = useMemo(
@@ -120,6 +162,10 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     const [selectedMinuteIndex, setSelectedMinuteIndex] = useState(
         Math.floor(initialMinute / 5)
     );
+
+    // 24-hour format: 00-23
+    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+    const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
     // Reset when initialHour/initialMinute changes
     useEffect(() => {
@@ -134,10 +180,6 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         setSelectedDateIndex(newDateIndex);
     }, [selectedHourIndex, selectedMinuteIndex]);
 
-    // 24-hour format: 00-23
-    const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-    const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
-
     // Current selected time
     const selectedHour = parseInt(hours[selectedHourIndex]);
     const selectedMinute = parseInt(minutes[selectedMinuteIndex]);
@@ -146,6 +188,62 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         onSelect(selectedHour, selectedMinute);
         onClose();
     };
+
+    const trapFocus = useCallback((e: KeyboardEvent) => {
+        if (e.key !== 'Tab' || !sheetRef.current) return;
+        const focusable = Array.from(
+            sheetRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+
+        if (focusable.length === 0) {
+            e.preventDefault();
+            sheetRef.current.focus();
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+
+        if (e.shiftKey && active === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }, []);
+
+    // Focus management + Escape
+    useEffect(() => {
+        if (!isOpen) return;
+
+        previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+        const frame = requestAnimationFrame(() => {
+            const firstFocusable = sheetRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+            (firstFocusable ?? sheetRef.current)?.focus();
+        });
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !required) {
+                e.preventDefault();
+                onClose();
+                return;
+            }
+            trapFocus(e);
+        };
+
+        document.addEventListener('keydown', onKeyDown);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            cancelAnimationFrame(frame);
+            document.removeEventListener('keydown', onKeyDown);
+            document.body.style.overflow = prevOverflow;
+            previouslyFocusedRef.current?.focus?.();
+        };
+    }, [isOpen, required, onClose, trapFocus]);
 
     if (!isOpen) return null;
 
@@ -157,17 +255,23 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.4 }}
-                onClick={onClose}
+                onClick={required ? undefined : onClose}
                 className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+                aria-hidden="true"
             />
 
             {/* Sheet - Gradient that reveals the sky */}
             <motion.div
+                ref={sheetRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                tabIndex={-1}
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
                 transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-                className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden"
+                className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
                 style={{
                     background: 'linear-gradient(to top, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0.75) 70%, rgba(255,255,255,0.4) 100%)',
                     backdropFilter: 'blur(20px)',
@@ -180,26 +284,31 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     style={{
                         background: 'linear-gradient(to right, transparent, rgba(252,211,77,0.3), rgba(255,182,193,0.3), transparent)'
                     }}
+                    aria-hidden="true"
                 />
 
                 {/* Handle bar - visible yet elegant */}
-                <div className="flex justify-center pt-4 pb-3">
+                <div className="flex justify-center pt-4 pb-3" aria-hidden="true">
                     <motion.div
-                        className="w-10 h-1 rounded-full bg-gray-300/70"
+                        className="w-10 h-1 rounded-full bg-ink-disabled/70"
                         whileHover={{ scale: 1.1 }}
                     />
                 </div>
 
-                {/* Close button - more subtle */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 text-gray-300/60 hover:text-gray-400 transition-all duration-300 hover:scale-110"
-                >
-                    <X size={18} />
-                </button>
+                {/* Close button - hidden during required first calibration */}
+                {!required && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-3 end-3 min-w-11 min-h-11 flex items-center justify-center text-ink-disabled/60 hover:text-ink-faint transition-[color,transform] duration-150 ease-out active:scale-[0.96]"
+                        aria-label="关闭起床时间选择"
+                    >
+                        <X size={18} strokeWidth={1.5} aria-hidden="true" />
+                    </button>
+                )}
 
-                {/* Content */}
-                <div className="px-6 pb-12 pt-2">
+                {/* Content — inset from edges; pb includes home indicator */}
+                <div className="page-inline pb-safe-sheet pt-2">
                     {/* Header - Poetic attitude statement */}
                     <motion.div
                         className="text-center mb-8"
@@ -207,9 +316,9 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.1, duration: 0.4 }}
                     >
-                        <p className="text-caption text-gray-500/80 tracking-widest font-light">
-                            世界有它的时钟，我按我的身体醒来
-                        </p>
+                        <h2 id={titleId} className="text-quote text-ink-muted max-w-[16em] mx-auto">
+                            {required ? '睁开眼时，是几点？' : '世界有它的时钟，你按你的身体醒来'}
+                        </h2>
                     </motion.div>
 
                     {/* Time Picker Container with soft glow focus area */}
@@ -219,20 +328,20 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.15, duration: 0.4 }}
                     >
-                        {/* No decoration needed - typography alone indicates selection */}
-
                         {/* Time Picker - 2 columns: Hour : Minute */}
-                        <div className="flex items-center justify-center relative z-10">
+                        <div className="flex items-center justify-center relative z-10" role="group" aria-label="起床时间">
                             <WheelColumn
                                 items={hours}
                                 selectedIndex={selectedHourIndex}
                                 onSelect={setSelectedHourIndex}
+                                label="小时"
                             />
-                            <span className="text-2xl text-gray-500/70 font-light mx-3">:</span>
+                            <span className="text-picker-selected text-ink-muted mx-3" aria-hidden="true">:</span>
                             <WheelColumn
                                 items={minutes}
                                 selectedIndex={selectedMinuteIndex}
                                 onSelect={setSelectedMinuteIndex}
+                                label="分钟"
                             />
                         </div>
                     </motion.div>
@@ -244,8 +353,8 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.4 }}
                     >
-                        <span className="text-xs text-gray-400/80 tracking-[0.25em] font-light">
-                            ·  {dateOptions[selectedDateIndex]}  ·
+                        <span className="text-caption-small text-ink-faint whitespace-nowrap">
+                            ·&nbsp;{dateOptions[selectedDateIndex]}&nbsp;·
                         </span>
                     </motion.div>
 
@@ -257,19 +366,21 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         transition={{ delay: 0.25, duration: 0.4 }}
                     >
                         <motion.button
+                            type="button"
                             onClick={handleConfirm}
-                            className="px-14 py-3.5 rounded-full text-sm font-medium tracking-widest cursor-pointer bg-gray-900 text-white"
+                            className="px-14 py-3.5 min-h-11 rounded-full text-button cursor-pointer bg-action text-action-fg hover:bg-action-hover transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
                             style={{
-                                boxShadow: '0 4px 14px rgba(0,0,0,0.15)'
+                                boxShadow:
+                                    '0 0 0 1px oklch(0.28 0.018 70 / 0.08), 0 1px 2px -1px oklch(0.28 0.018 70 / 0.08), 0 4px 14px oklch(0.28 0.018 70 / 0.14)',
                             }}
                             whileHover={{
-                                scale: 1.02,
-                                boxShadow: '0 6px 20px rgba(0,0,0,0.2)'
+                                boxShadow:
+                                    '0 0 0 1px oklch(0.28 0.018 70 / 0.12), 0 1px 2px -1px oklch(0.28 0.018 70 / 0.12), 0 6px 20px oklch(0.28 0.018 70 / 0.2)',
                             }}
-                            whileTap={{ scale: 0.98 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                            whileTap={{ scale: 0.96 }}
+                            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
                         >
-                            确 认
+                            {required ? '进入时区' : '更改起床时间'}
                         </motion.button>
                     </motion.div>
                 </div>

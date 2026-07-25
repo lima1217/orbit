@@ -1,6 +1,6 @@
 /**
  * Sky Configuration Constants
- * Semantic constants for sky gradients and time periods
+ * Soft 「晨曦星海」 palette — matched to IntroSequence luminance & chroma
  */
 
 // Time period boundaries (in Orbit hours)
@@ -11,33 +11,37 @@ export const TIME_PERIODS = {
     NIGHT: { start: 19, end: 5 },
 } as const;
 
-// Sky gradient configurations
+/**
+ * Soft sky washes (oklch) — same key as Intro:
+ * L ≈ 0.82–0.88, chroma low, mint ↔ warm blush family.
+ * Avoid high-sat soul-gold / lavender-deep glare.
+ */
 export const SKY_GRADIENTS = {
-    dawn: 'from-blush-soft via-soul-gold/30 to-sky-blue/50',
-    day: 'from-sky-mint via-sky-blue/40 to-lavender-soft/30',
-    dusk: 'from-blush-rose/50 via-soul-gold/40 to-lavender-deep/30',
-    night: 'from-lavender-deep/40 via-sky-deep/50 to-blush-deep/30',
+    dawn: 'linear-gradient(180deg, oklch(0.875 0.040 40) 0%, oklch(0.865 0.035 70) 38%, oklch(0.850 0.038 200) 100%)',
+    day: 'linear-gradient(180deg, oklch(0.860 0.038 195) 0%, oklch(0.875 0.025 55) 48%, oklch(0.855 0.036 22) 100%)',
+    dusk: 'linear-gradient(180deg, oklch(0.835 0.042 25) 0%, oklch(0.850 0.038 55) 42%, oklch(0.820 0.035 295) 100%)',
+    night: 'linear-gradient(180deg, oklch(0.780 0.032 275) 0%, oklch(0.800 0.030 240) 45%, oklch(0.825 0.028 30) 100%)',
 } as const;
 
 // Celestial body positioning
 // Jobs: "天体绝不能侵入内容区域 - 这是不可协商的设计边界"
 export const CELESTIAL_POSITION = {
-    horizontalRange: 80,     // percentage of screen width
-    horizontalOffset: 10,    // starting offset
+    horizontalRange: 70,     // percentage of screen width (inset from edges)
+    horizontalOffset: 15,    // starting offset — keeps glow clear of viewport edges
     verticalBase: 18,        // base vertical position (%) - 上移避免与城市名重叠
     verticalAmplitude: 12,   // arc height (%) - 减小振幅保持在安全区域
-    safeZoneTop: 5,          // minimum top position (%) - 安全边距
+    safeZoneTop: 8,          // minimum top position (%) — clears notch / status bar
 } as const;
 
-// Celestial body styles
+// Celestial body styles — material discs, not lamps (mirrors Intro orb)
 export const CELESTIAL_STYLES = {
     sun: {
-        gradient: 'bg-gradient-to-br from-soul-gold to-blush-soft',
-        shadow: 'shadow-[0_0_60px_rgba(252,211,77,0.6)]',
+        gradient: 'linear-gradient(155deg, oklch(0.88 0.055 70), oklch(0.84 0.065 45), oklch(0.86 0.050 25))',
+        shadow: '0 10px 28px oklch(0.40 0.04 50 / 0.12), 0 0 36px oklch(0.85 0.06 70 / 0.18)',
     },
     moon: {
-        gradient: 'bg-gradient-to-br from-lavender-soft to-white',
-        shadow: 'shadow-[0_0_40px_rgba(220,208,255,0.5)]',
+        gradient: 'linear-gradient(155deg, oklch(0.90 0.018 280), oklch(0.86 0.035 296), oklch(0.84 0.040 30))',
+        shadow: '0 10px 28px oklch(0.40 0.03 280 / 0.12), 0 0 32px oklch(0.80 0.04 296 / 0.16)',
     },
 } as const;
 

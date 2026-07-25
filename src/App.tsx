@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IntroSequence } from './components/IntroSequence';
 import { TimeZoneHome } from './components/TimeZoneHome';
 import { WakeUpSheet } from './components/WakeUpSheet';
-import { PickerComparisonDemo } from './components/PickerComparisonDemo';
-import { SoundLayoutPrototype } from './components/SoundLayoutPrototype';
 import {
   calculateLivingTimezone,
   getTimezoneByOffset,
@@ -14,8 +12,6 @@ import {
 
 // Check for demo mode via URL params
 const urlParams = new URLSearchParams(window.location.search);
-const isCompareDemo = urlParams.get('demo') === 'compare';
-const isPrototypeSound = urlParams.get('prototype') === 'sound';
 const forceFirstVisit = urlParams.get('first') === 'true';
 
 // Application phases
@@ -104,14 +100,14 @@ function App() {
 
   // Handle intro completion - seamless transition via reveal phase
   const handleIntroComplete = useCallback(() => {
-    if (isFirstVisit) {
-      localStorage.setItem(STORAGE_KEY_WAKEUP, `${DEFAULT_WAKEUP_HOUR}:${DEFAULT_WAKEUP_MINUTE}`);
-    }
-
     setPhase('reveal');
 
     setTimeout(() => {
       setPhase('timezone');
+      // 首次用户：世界浮现后立刻校准起床时间（不自动写入默认值）
+      if (isFirstVisit) {
+        setIsSheetOpen(true);
+      }
     }, 1000);
   }, [isFirstVisit]);
 
@@ -127,6 +123,14 @@ function App() {
     setIsSheetOpen(true);
   }, []);
 
+  // 首次校准：确认前不允许关掉 Sheet
+  const handleSheetClose = useCallback(() => {
+    if (isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null) {
+      return;
+    }
+    setIsSheetOpen(false);
+  }, [isFirstVisit]);
+
   // Handle return to intro - 完全是 reveal 的逆向
   const handleReturnToIntro = useCallback(() => {
     setPhase('returning');
@@ -136,15 +140,6 @@ function App() {
       setPhase('intro');
     }, 1200);
   }, []);
-
-  // Demo mode
-  if (isCompareDemo) {
-    return <PickerComparisonDemo />;
-  }
-
-  if (isPrototypeSound) {
-    return <SoundLayoutPrototype />;
-  }
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -187,10 +182,11 @@ function App() {
         {isSheetOpen && (
           <WakeUpSheet
             isOpen={isSheetOpen}
-            onClose={() => setIsSheetOpen(false)}
+            onClose={handleSheetClose}
             onSelect={handleWakeUpChange}
             initialHour={wakeUpHour}
             initialMinute={wakeUpMinute}
+            required={isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null}
           />
         )}
       </AnimatePresence>

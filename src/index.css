@@ -3,32 +3,53 @@
  * Orbit Typography System
  * ============================================
  * 设计哲学：一个字体家族，字重定义层级
- * 灵感来源：乔布斯从 Helvetica 到 San Francisco 的严谨
- * 
- * Font Family: Inter (现代 UI 标杆字体)
- * - Light 300:    Display, Caption
- * - Regular 400:  Body
- * - Medium 500:   Title, Overline
+ *
+ * Font Family: Inter (variable, optical sizing)
+ * - Light 300:    Display, Picker selected (≥28px only)
+ * - Regular 400:  Body, Caption, Button, Picker option
+ * - Medium 500:   Title, Overline, Brand
  * - Semibold 600: Headline
- * 
- * 特殊字体: LXGW WenKai (霞鹜文楷)
- * - 用途：诗意名言、引用语
- * - 风格：手写楷书，温暖有灵魂
+ *
+ * Letter-spacing:
+ * - Latin display / brand / overline only
+ * - Never on Chinese body/caption/button/headline (CJK 字距会「散」)
+ *
+ * 特殊字体: LXGW WenKai Regular — 诗意引用 (.text-quote / font-quote)
  * ============================================
  */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-/* 霞鹜文楷 - 加粗版本更有质感 */
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply antialiased;
+    font-optical-sizing: auto;
+  }
+
   body {
-    @apply bg-dawn-cream text-gray-600 font-sans antialiased overflow-hidden selection:bg-blush-soft/30;
+    @apply bg-dawn-cream text-ink-secondary font-sans overflow-hidden;
+    @apply selection:bg-blush-soft/40 selection:text-ink-primary;
+  }
+
+  /* Keyboard focus: visible ring for :focus-visible only */
+  :focus-visible {
+    outline: 2px solid oklch(0.280 0.018 70);
+    outline-offset: 2px;
+  }
+
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    body {
+      @apply text-ink-primary;
+    }
   }
 }
 
@@ -39,74 +60,95 @@
    * 每个层级都有明确的用途，请勿混用
    */
 
-  /* Display: 超大时间显示 (8xl-9xl, Light 300) */
+  /* Display: 超大时间 — fluid size so narrow viewports don't clip */
   .text-display {
-    @apply text-8xl md:text-9xl font-light tracking-tight;
-    font-variant-numeric: tabular-nums;
+    @apply font-light leading-none tracking-tight tabular-nums whitespace-nowrap;
+    font-size: clamp(3.75rem, 18vw, 8rem);
   }
 
-  /* Headline: 城市名、页面主标题 (2xl-3xl, Semibold 600) */
+  /* Brand: Orbit 词标（仅拉丁，可字距） */
+  .text-brand {
+    @apply text-2xl md:text-3xl font-semibold leading-none tracking-[0.12em] text-balance;
+  }
+
+  /* Headline: 城市名、页面主标题 — 无字距（中文主标题） */
   .text-headline {
-    @apply text-2xl md:text-3xl font-semibold tracking-normal;
+    @apply text-2xl md:text-3xl font-semibold leading-tight text-balance;
   }
 
-  /* Title: 面板标题、卡片标题 (lg, Medium 500) */
+  /* Title: 面板标题 */
   .text-title {
-    @apply text-lg font-medium;
+    @apply text-lg font-medium leading-snug;
   }
 
-  /* Body: 正文内容 (base, Regular 400) */
+  /* Body: 正文 — CJK 严格断行，不用字距 */
   .text-body {
-    @apply text-base font-normal;
+    @apply text-base font-normal leading-relaxed text-pretty break-words;
+    line-break: strict;
   }
 
-  /* Caption: 诗意文案、提示语、辅助信息 (sm, Light 300) */
+  /* Caption: 功能提示语、次要说明 */
   .text-caption {
-    @apply text-sm font-light;
+    @apply text-sm font-normal leading-relaxed text-pretty break-words;
+    line-break: strict;
   }
 
-  /* Small Caption: 最小提示文字 (xs, Light 300) */
+  /* Small Caption: 最小提示 — 无字距，避免中文散开 */
   .text-caption-small {
-    @apply text-xs font-light tracking-wider;
+    @apply text-xs font-normal leading-normal;
   }
 
-  /* Overline: 区块标签、分类标题 (xs, Medium 500, uppercase) */
+  /* Overline: 拉丁区块标签（uppercase 需要字距） */
   .text-overline {
-    @apply text-xs font-medium uppercase tracking-wider;
+    @apply text-xs font-medium uppercase tracking-wider leading-normal whitespace-nowrap;
   }
 
-  /* Button: 按钮文字 (sm, Light 300) */
+  /* Button: 中英按钮共用，无强制字距 */
   .text-button {
-    @apply text-sm font-light tracking-wide;
+    @apply text-sm font-normal leading-none;
   }
 
-  /* Picker Value: 时间选择器中的值 (3xl, Light 300) */
+  /* Picker selected — 等宽数字，防换行 */
   .text-picker-selected {
-    @apply text-3xl font-light tracking-wider;
+    @apply text-3xl font-light tabular-nums leading-none whitespace-nowrap;
   }
 
-  /* Picker Option: 时间选择器中未选中的值 (lg, Light 300) */
+  /* Picker option */
   .text-picker-option {
-    @apply text-lg font-light;
+    @apply text-lg font-normal tabular-nums leading-none whitespace-nowrap;
   }
 
-  /* Quote: 诗意名言、每日引用 - 霞鹜文楷加粗版 */
+  /* Quote: 霞鹜文楷 — 诗意引用（仅 Regular） */
   .text-quote {
-    font-family: 'LXGW WenKai', serif;
-    @apply text-lg font-bold leading-relaxed tracking-wide;
+    font-family: 'LXGW WenKai', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+      'Noto Sans SC', 'Noto Sans CJK SC', serif;
+    @apply text-lg font-normal leading-relaxed text-pretty break-words;
+    line-break: strict;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-2xl;
+    @apply backdrop-blur-xl;
+    background: oklch(0.96 0.01 55 / 0.45);
+    box-shadow:
+      0 0 0 1px oklch(0.40 0.02 70 / 0.08),
+      0 1px 2px -1px oklch(0.40 0.02 70 / 0.06),
+      0 8px 24px oklch(0.40 0.02 70 / 0.08);
   }
 
   .glass-button {
-    @apply backdrop-blur-sm bg-white/10 border border-white/20 hover:bg-white/20 transition-all duration-300;
+    @apply backdrop-blur-sm transition-[background-color,transform] duration-150 ease-out active:scale-[0.96];
+    background: oklch(0.96 0.01 55 / 0.35);
+    box-shadow:
+      0 0 0 1px oklch(0.40 0.02 70 / 0.08),
+      0 1px 2px -1px oklch(0.40 0.02 70 / 0.06);
   }
 
-  /* Hide scrollbar for scroll wheel picker */
+  .glass-button:hover {
+    background: oklch(0.96 0.01 55 / 0.52);
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -116,13 +158,29 @@
     display: none;
   }
 
-  /* 安全区域边距 - 适配 iPhone 刘海和底部导航条 */
+  /* Shared page inline margin (content + floating controls) */
+  .page-inline {
+    @apply px-6;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Footer / sheet actions: base inset + home indicator */
+  .pb-safe-lg {
+    padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pb-safe-sheet {
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
-/* 无障碍支持：尊重用户的减少动画偏好 */
 @media (prefers-reduced-motion: reduce) {
 
   *,
@@ -131,5 +189,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

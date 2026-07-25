@@ -12,7 +12,7 @@ export interface AmbientSound {
 }
 
 export const AMBIENT_SOUNDS: AmbientSound[] = [
-    // 第一排：🧘 🔔 🐟 🌲
+    // 第一排：🧘 🔔 木鱼(SVG) 🌲
     {
         id: 'zen',
         name: '静心',
@@ -32,7 +32,8 @@ export const AMBIENT_SOUNDS: AmbientSound[] = [
         name: '木鱼',
         nameEn: 'Mokugyo',
         src: '/audio/mokugyo.mp3',
-        icon: '🐟',
+        // Unicode 无木鱼；实际渲染见 SoundIcon → MokugyoIcon
+        icon: '木',
     },
     {
         id: 'forest',
@@ -60,7 +61,7 @@ export const AMBIENT_SOUNDS: AmbientSound[] = [
         id: 'umbrella',
         name: '雨伞',
         nameEn: 'Rain on Umbrella',
-        src: '/audio/umbrella-full.wav',
+        src: '/audio/umbrella-full.mp3',
         icon: '☔️',
     },
     {

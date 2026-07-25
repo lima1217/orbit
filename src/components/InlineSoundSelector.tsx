@@ -1,114 +1,174 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AMBIENT_SOUNDS, AmbientSound } from '../constants/ambientSounds';
+import { SoundIcon } from './icons/SoundIcon';
 
 interface InlineSoundSelectorProps {
     selectedIds: string[];
     onToggleSound: (soundId: string) => void;
+    /** 展开时通知父级，便于 dim 背后内容（Apple: dim to focus） */
+    onExpandChange?: (expanded: boolean) => void;
 }
 
 /**
- * 🎵 InlineSoundSelector - 内嵌式音效选择器（方案 B 优化版）
- * 
- * 设计原则：
- * - 无黑色钩子，选中用柔和光晕表示
- * - 无圆形容器，emoji 自由呈现
- * - 无"收起"按钮，点击空白处自动收起
- * - 收起时只显示前4个emoji，无"+N"数字
+ * Soft glass — denser than page chrome so the display clock doesn't bleed through icons.
+ * Shadow ring for elevation (better-ui: shadows for depth, not solid borders).
+ */
+const PANEL_SURFACE: React.CSSProperties = {
+    background: 'oklch(0.975 0.010 55 / 0.88)',
+    backdropFilter: 'blur(40px) saturate(170%)',
+    WebkitBackdropFilter: 'blur(40px) saturate(170%)',
+    boxShadow:
+        'inset 0 1px 0 oklch(1 0 0 / 0.55), 0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.06), 0 12px 32px oklch(0.35 0.03 50 / 0.12)',
+};
+
+/** Selected chip — static cue strong enough without relying on motion */
+const SELECTED_CHIP: React.CSSProperties = {
+    background: 'oklch(0.93 0.045 25 / 0.78)',
+    boxShadow:
+        'inset 0 1px 0 oklch(1 0 0 / 0.45), 0 0 0 1px oklch(0.55 0.06 25 / 0.16)',
+};
+
+/**
+ * 🎵 InlineSoundSelector
+ * 展开为触发钮上方的玻璃面板；收起：点外部 / Escape / 再点触发钮。
  */
 export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
     selectedIds,
     onToggleSound,
+    onExpandChange,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const listId = useId();
 
-    // 点击外部区域时收起
+    const setExpanded = (open: boolean) => {
+        setIsExpanded(open);
+        onExpandChange?.(open);
+    };
+
     useEffect(() => {
         if (!isExpanded) return;
 
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsExpanded(false);
+                onExpandChange?.(false);
             }
         };
 
-        // 延迟添加监听，避免点击展开时立即触发收起
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setIsExpanded(false);
+                onExpandChange?.(false);
+                triggerRef.current?.focus();
+            }
+        };
+
         const timer = setTimeout(() => {
             document.addEventListener('mousedown', handleClickOutside);
             document.addEventListener('touchstart', handleClickOutside);
+            document.addEventListener('keydown', handleEscape);
         }, 100);
 
         return () => {
             clearTimeout(timer);
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('touchstart', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
         };
-    }, [isExpanded]);
+    }, [isExpanded, onExpandChange]);
 
-    // 获取选中的 emoji icons（最多显示4个）
-    const selectedIcons = AMBIENT_SOUNDS
+    const selectedSounds = AMBIENT_SOUNDS
         .filter(s => selectedIds.includes(s.id))
-        .map(s => s.icon)
         .slice(0, 4);
 
-    return (
-        <div ref={containerRef} className="flex flex-col items-center">
-            {/* 收起状态 - 简洁的 emoji 展示 */}
-            <AnimatePresence mode="wait">
-                {!isExpanded && (
-                    <motion.button
-                        key="collapsed"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.2 }}
-                        onClick={() => setIsExpanded(true)}
-                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full 
-                                   bg-white/20 backdrop-blur-sm hover:bg-white/35 
-                                   transition-colors cursor-pointer"
-                    >
-                        {selectedIcons.length > 0 ? (
-                            selectedIcons.map((icon, i) => (
-                                <motion.span
-                                    key={i}
-                                    initial={{ opacity: 0, scale: 0 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    className="text-lg"
-                                >
-                                    {icon}
-                                </motion.span>
-                            ))
-                        ) : (
-                            <span className="text-lg opacity-50">
-                                🎵
-                            </span>
-                        )}
-                    </motion.button>
-                )}
-            </AnimatePresence>
+    const collapsedLabel =
+        selectedSounds.length > 0
+            ? `环境音：${selectedSounds.map((s) => s.name).join('、')}。点击${isExpanded ? '收起' : '展开选择'}`
+            : isExpanded
+                ? '收起环境音选择'
+                : '选择环境音';
 
-            {/* 展开状态 - 纯净的 emoji 网格 */}
-            <AnimatePresence>
+    return (
+        <div ref={containerRef} className="relative flex flex-col items-center">
+            <motion.button
+                ref={triggerRef}
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                onClick={() => setExpanded(!isExpanded)}
+                aria-label={collapsedLabel}
+                aria-expanded={isExpanded}
+                aria-controls={listId}
+                aria-haspopup="true"
+                className="relative z-10 flex items-center justify-center gap-2 min-h-11 min-w-11 px-3.5 py-2.5 rounded-full
+                           glass-button cursor-pointer
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
+            >
+                <AnimatePresence initial={false} mode="popLayout">
+                    {selectedSounds.length > 0 ? (
+                        <motion.span
+                            key={selectedSounds.map((s) => s.id).join('-')}
+                            initial={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                            className="inline-flex items-center gap-2"
+                        >
+                            {selectedSounds.map((sound) => (
+                                <span key={sound.id} className="inline-flex" aria-hidden="true">
+                                    <SoundIcon sound={sound} size={18} />
+                                </span>
+                            ))}
+                        </motion.span>
+                    ) : (
+                        <motion.span
+                            key="empty"
+                            initial={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                            className="inline-flex text-ink-faint/70"
+                            aria-hidden="true"
+                        >
+                            <MusicNoteIcon />
+                        </motion.span>
+                    )}
+                </AnimatePresence>
+            </motion.button>
+
+            {/* Glass panel — grows from trigger (origin bottom) */}
+            <AnimatePresence initial={false}>
                 {isExpanded && (
                     <motion.div
                         key="expanded"
-                        initial={{ opacity: 0, scale: 0.95, height: 0 }}
-                        animate={{ opacity: 1, scale: 1, height: 'auto' }}
-                        exit={{ opacity: 0, scale: 0.95, height: 0 }}
-                        transition={{ duration: 0.25, ease: 'easeOut' }}
-                        className="overflow-hidden"
+                        id={listId}
+                        role="group"
+                        aria-label="环境音"
+                        initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                        className="absolute bottom-full inset-x-0 z-20 mb-3 flex justify-center origin-bottom"
                     >
-                        {/* 音效网格 - 无容器背景 */}
-                        <div className="grid grid-cols-4 gap-x-4 gap-y-3 max-w-xs mx-auto py-2">
+                        {/*
+                          Concentric radii: outer 22px = inner 14px + padding 8px
+                          w-fit：面板随 4×44px 格子收缩，左右内边距对称（勿用 w-full，否则固定宽按钮会贴左）
+                        */}
+                        <div
+                            className="grid grid-cols-4 gap-1.5 w-fit mx-auto p-2 rounded-[1.375rem]"
+                            style={PANEL_SURFACE}
+                        >
                             {AMBIENT_SOUNDS.map((sound, index) => (
                                 <SoundButton
                                     key={sound.id}
                                     sound={sound}
                                     isSelected={selectedIds.includes(sound.id)}
                                     onClick={() => onToggleSound(sound.id)}
-                                    delay={index * 0.02}
+                                    autoFocus={index === 0}
                                 />
                             ))}
                         </div>
@@ -119,55 +179,78 @@ export const InlineSoundSelector: React.FC<InlineSoundSelectorProps> = ({
     );
 };
 
-/**
- * 单个音效按钮 - 极简设计
- * 选中状态：柔和光晕边框
- * 未选中状态：纯 emoji
- */
 interface SoundButtonProps {
     sound: AmbientSound;
     isSelected: boolean;
     onClick: () => void;
-    delay?: number;
+    autoFocus?: boolean;
 }
 
 const SoundButton: React.FC<SoundButtonProps> = ({
     sound,
     isSelected,
     onClick,
-    delay = 0
+    autoFocus = false,
 }) => {
     return (
         <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay, duration: 0.2 }}
-            whileTap={{ scale: 0.85 }}
+            type="button"
+            whileTap={{ scale: 0.96 }}
+            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
             onClick={onClick}
-            className="relative flex items-center justify-center w-12 h-12 cursor-pointer transition-all duration-200"
-            title={sound.name}
+            autoFocus={autoFocus}
+            className="relative flex items-center justify-center w-11 h-11 min-w-11 min-h-11 cursor-pointer
+                       transition-transform duration-150 ease-out
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2
+                       rounded-[0.875rem]"
+            aria-label={sound.name}
+            aria-pressed={isSelected}
         >
-            {/* 选中时的柔和光晕 */}
-            {isSelected && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="absolute inset-0 rounded-xl bg-white/60 backdrop-blur-sm"
-                    style={{
-                        boxShadow: '0 0 12px rgba(255,255,255,0.5), 0 2px 8px rgba(0,0,0,0.05)'
-                    }}
-                />
-            )}
+            <AnimatePresence initial={false}>
+                {isSelected && (
+                    <motion.div
+                        key="glow"
+                        initial={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+                        transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                        className="absolute inset-0 rounded-[0.875rem]"
+                        style={SELECTED_CHIP}
+                        aria-hidden="true"
+                    />
+                )}
+            </AnimatePresence>
 
-            {/* Emoji 本身 */}
             <span
-                className={`relative z-10 text-2xl transition-transform duration-150 ${isSelected ? 'scale-105' : 'opacity-70 hover:opacity-100 hover:scale-110'
-                    }`}
+                aria-hidden="true"
+                className={`relative z-10 inline-flex transition-[opacity] duration-150 ease-out ${
+                    isSelected ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+                }`}
             >
-                {sound.icon}
+                <SoundIcon sound={sound} size={22} />
             </span>
         </motion.button>
     );
 };
+
+/** Outline music note — empty trigger; stroke matches caption weight (~1.5) */
+function MusicNoteIcon() {
+    return (
+        <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+        </svg>
+    );
+}
 
 export default InlineSoundSelector;
