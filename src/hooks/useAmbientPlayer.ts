@@ -15,7 +15,6 @@ import {
     isGlobalAudioPlaying,
     addSound,
     removeSound,
-    getPlayingSoundIds
 } from '../utils/globalAudio';
 
 // 默认音效（首次进入时）

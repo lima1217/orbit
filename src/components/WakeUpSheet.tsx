@@ -1,6 +1,19 @@
 import React, { useState, useRef, useEffect, useMemo, useId, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import {
+    motion,
+    AnimatePresence,
+    useReducedMotion,
+    useDragControls,
+    type PanInfo,
+} from 'framer-motion';
 import { X } from 'lucide-react';
+import { DURATION, EASING } from '../constants/animationConfig';
+
+/** Dismiss if pulled far enough or flicked downward */
+const DISMISS_OFFSET_Y = 80;
+const DISMISS_VELOCITY_Y = 400;
+/** How far the sheet may travel down before elastic resistance */
+const DRAG_RANGE_Y = 220;
 
 interface WakeUpSheetProps {
     isOpen: boolean;
@@ -150,6 +163,12 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
     const titleId = useId();
     const sheetRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+    const bodyOverflowRef = useRef('');
+    const isOpenRef = useRef(isOpen);
+    isOpenRef.current = isOpen;
+    const prefersReducedMotion = useReducedMotion();
+    const dragControls = useDragControls();
+    const canDragDismiss = !required && !prefersReducedMotion;
 
     // Infer initial date based on initial time
     const initialDateIndex = useMemo(
@@ -214,7 +233,7 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         }
     }, []);
 
-    // Focus management + Escape
+    // Focus management + Escape (scroll lock restored after exit — see onExitComplete)
     useEffect(() => {
         if (!isOpen) return;
 
@@ -234,50 +253,97 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
         };
 
         document.addEventListener('keydown', onKeyDown);
-        const prevOverflow = document.body.style.overflow;
+        bodyOverflowRef.current = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
 
         return () => {
             cancelAnimationFrame(frame);
             document.removeEventListener('keydown', onKeyDown);
-            document.body.style.overflow = prevOverflow;
             previouslyFocusedRef.current?.focus?.();
         };
     }, [isOpen, required, onClose, trapFocus]);
 
-    if (!isOpen) return null;
+    const handleExitComplete = useCallback(() => {
+        // Re-open during exit must not unlock scroll while the sheet is open again
+        if (!isOpenRef.current) {
+            document.body.style.overflow = bodyOverflowRef.current;
+        }
+    }, []);
+
+    const handleDragEnd = useCallback(
+        (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+            if (!canDragDismiss) return;
+            if (info.offset.y > DISMISS_OFFSET_Y || info.velocity.y > DISMISS_VELOCITY_Y) {
+                onClose();
+            }
+        },
+        [canDragDismiss, onClose]
+    );
+
+    const backdropTransition = prefersReducedMotion
+        ? { duration: DURATION.fast, ease: EASING.enter }
+        : { duration: 0.4, ease: EASING.enter };
+
+    const sheetTransition = prefersReducedMotion
+        ? { duration: DURATION.fast, ease: EASING.enter }
+        : { type: 'spring' as const, damping: 32, stiffness: 350 };
+
+    // dragTransition expects InertiaOptions (not spring Transition)
+    const sheetSnapBack = { bounceStiffness: 500, bounceDamping: 35 };
+
+    const sheetInitial = prefersReducedMotion ? { opacity: 0 } : { y: '100%' };
+    const sheetAnimate = prefersReducedMotion ? { opacity: 1 } : { y: 0 };
+    const sheetExit = prefersReducedMotion
+        ? { opacity: 0, transition: { duration: DURATION.fast, ease: EASING.exit } }
+        : { y: '100%' };
 
     return (
-        <>
-            {/* Backdrop - subtle blur to let sky peek through */}
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                onClick={required ? undefined : onClose}
-                className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-                aria-hidden="true"
-            />
-
-            {/* Sheet - Gradient that reveals the sky */}
-            <motion.div
-                ref={sheetRef}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                tabIndex={-1}
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 32, stiffness: 350 }}
-                className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
-                style={{
-                    background: 'linear-gradient(to top, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0.75) 70%, rgba(255,255,255,0.4) 100%)',
-                    backdropFilter: 'blur(20px)',
-                    WebkitBackdropFilter: 'blur(20px)',
-                }}
-            >
+        <AnimatePresence onExitComplete={handleExitComplete}>
+            {isOpen && (
+                <motion.div
+                    key="wakeup-backdrop"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{
+                        opacity: 0,
+                        transition: {
+                            duration: prefersReducedMotion ? DURATION.fast : 0.4,
+                            ease: EASING.exit,
+                        },
+                    }}
+                    transition={backdropTransition}
+                    onClick={required ? undefined : onClose}
+                    className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+                    aria-hidden="true"
+                />
+            )}
+            {isOpen && (
+                <motion.div
+                    key="wakeup-sheet"
+                    ref={sheetRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby={titleId}
+                    tabIndex={-1}
+                    initial={sheetInitial}
+                    animate={sheetAnimate}
+                    exit={sheetExit}
+                    transition={sheetTransition}
+                    drag={canDragDismiss ? 'y' : false}
+                    dragControls={dragControls}
+                    dragListener={false}
+                    dragConstraints={{ top: 0, bottom: DRAG_RANGE_Y }}
+                    dragElastic={{ top: 0, bottom: 0.2 }}
+                    dragSnapToOrigin
+                    dragTransition={sheetSnapBack}
+                    onDragEnd={handleDragEnd}
+                    className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden overscroll-contain focus:outline-none"
+                    style={{
+                        background: 'linear-gradient(to top, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 40%, rgba(255,255,255,0.75) 70%, rgba(255,255,255,0.4) 100%)',
+                        backdropFilter: 'blur(20px)',
+                        WebkitBackdropFilter: 'blur(20px)',
+                    }}
+                >
                 {/* Subtle top edge glow */}
                 <div
                     className="absolute inset-x-0 top-0 h-px"
@@ -287,11 +353,17 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                     aria-hidden="true"
                 />
 
-                {/* Handle bar - visible yet elegant */}
-                <div className="flex justify-center pt-4 pb-3" aria-hidden="true">
+                {/* Drag handle — only this region starts drag (avoids fighting the time wheels) */}
+                <div
+                    className={`flex justify-center items-center min-h-11 pt-2 pb-1 ${canDragDismiss ? 'cursor-grab active:cursor-grabbing touch-none select-none' : ''}`}
+                    aria-hidden="true"
+                    onPointerDown={(e) => {
+                        if (canDragDismiss) dragControls.start(e);
+                    }}
+                >
                     <motion.div
                         className="w-10 h-1 rounded-full bg-ink-disabled/70"
-                        whileHover={{ scale: 1.1 }}
+                        whileHover={canDragDismiss ? { scale: 1.1 } : undefined}
                     />
                 </div>
 
@@ -384,7 +456,8 @@ export const WakeUpSheet: React.FC<WakeUpSheetProps> = ({
                         </motion.button>
                     </motion.div>
                 </div>
-            </motion.div>
-        </>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };

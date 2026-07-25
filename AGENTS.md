@@ -1,272 +1,178 @@
-# Orbit - 灵魂日历 🌌
+# Orbit：给代理与协作者的指南
 
-> **「时间不是刻度，是呼吸。」**
+Orbit 是一款主观时间应用：一天仍是 24 小时，但起点由你的起床时刻决定。起床 = Orbit 日出（6:00）。你不是作息失序，你只是住在另一个时区。
 
-Orbit 是一款探索主观时间的应用。它不改变一天的长度，而是**重新定义一天的起点**——你的起床时刻，就是你的日出。
+本文档描述产品意图、当前实现与开发约定。以 `src/` 为准；过时叙述以代码修正。
 
----
+## 产品理念
 
-## 🌌 产品理念
+受众是作息偏离「世俗节律」的人：日夜颠倒、睡眠长短不一、作息不固定。大众常称他们「失序」；Orbit 认为他们只是有自己的秩序。
 
-### 核心主张：不被禁锢，回归本我
+一天的起点由身体决定，而非格林威治的钟声。凌晨三点睡、中午十一点醒，不是「不规律」，而是住在另一个时区。
 
-Orbit 的受众是那些作息不符合"世俗节律"的人——日夜颠倒、睡眠过多或过少、作息不固定……在大众眼中，他们过着"失序"的生活。
+### 时区映射
 
-**但我们认为：他们不是失序，他们只是有自己的秩序。**
+**起床时间 = Orbit 日出（6:00）**
 
-Orbit 不是在"反叛"24小时制。我们尊重地球的物理规律——一天就是24小时。但我们认为：**一天的起点，应该由你的身体决定，而非格林威治的钟声。**
+生活时区由本地时区与起床相对「标准起床」的偏差算出（见 `STANDARD_WAKEUP_HOUR`，当前为 **8**）：
 
-> 夜猫子不是在"叛逆"，而是天生如此。
-> 凌晨3点睡、中午11点醒的人，不是"作息不规律"，而是住在另一个时区。
+```text
+livingOffset = localOffset - (wakeUpHour - STANDARD_WAKEUP_HOUR)
+```
 
-### 核心机制：时区映射
+偏移再映射到代表城市（见 `src/constants/timezones.ts`）。例如北京（UTC+8）中午 12:00 起床 → 差 4 小时 → 生活时区 UTC+3（伊斯坦布尔）。
 
-**你的起床时间 = 你的日出（6:00 AM）**
+世界上真的有人在那个偏移迎接日出。这不是隐喻。
 
-这意味着：
-- 如果你 7:00 AM 起床 → 你的身体时钟与**旧金山**同步
-- 如果你 11:00 AM 起床 → 你的身体时钟与**迪拜**同步
-- 如果你 3:00 PM 起床 → 你的身体时钟与**东京**同步
+## 设计规范
 
-这不是隐喻，这是一种新的时间观：世界上真的有人在那个时区，和你一起迎接日出。
+风格：纪念碑谷式柔和 × 治愈系宇宙。明亮、留白、有机动效；避免暗黑、高对比刺眼色、机械化过渡。移动优先。
 
-**你不是失序，你只是住在另一个时区。**
+### 色彩（「晨曦星海」）
 
----
+Token 定义在 `tailwind.config.js`，色值用 OKLCH。装饰色保持柔和；正文与控件用 `ink` / `*-ink`。
 
-## 🎨 设计理念
+| 分类 | Token | 用途 |
+|------|-------|------|
+| 晨曦 | `dawn-cream`, `dawn-blush` | 背景、留白 |
+| 天际 | `sky-mint`, `sky-aqua`, `sky-blue`, `sky-deep`, `sky-ink` | 天空渐变、天际墨色 |
+| 樱瓣 | `blush-soft`, `blush-rose`, `blush-deep`, `blush-ink` | 粉色点缀 |
+| 薰衣草 | `lavender-soft`, `lavender-deep`, `lavender-ink` | 淡紫点缀 |
+| 灵魂金 | `soul-gold`, `soul-warm`, `soul-ink` | 太阳/高亮 |
+| 墨色 | `ink-primary` … `ink-inverse` | 正文层级 |
+| 操作 | `action`, `action-hover`, `action-fg` | 主按钮 |
 
-### 核心风格：纪念碑谷风 × 治愈系宇宙 (Monument Valley × Healing Cosmos)
+`dream.*` 是 Intro 兼容别名，映射到同一套 token。
 
-- **视觉基调**：简约、明亮、治愈、诗意
-- **画风灵感**：纪念碑谷的柔和色彩 + 宇宙行星的核心意象
-- **色彩系统**：「晨曦星海」蓝粉马卡龙色系
-- **动画**：有机、流动、呼吸感，避免机械化过渡
+### 字体
 
-### 「晨曦星海」色彩规范
+- UI：`Inter`，中文回退 `PingFang SC` → `Hiragino Sans GB` → `Microsoft YaHei` → `Noto Sans SC`
+- 诗意引用：`LXGW WenKai`（类名 `text-quote`）
 
-| 分类 | Token | 色值 | 用途 |
-|------|-------|------|------|
-| **晨曦** | `dawn-cream` | `#FDF8F3` | 背景基底、留白 |
-| | `dawn-blush` | `#FFE4E1` | 柔和粉色背景 |
-| **天际** | `sky-mint` | `#E0F4F1` | 薄荷绿顶部 |
-| | `sky-aqua` | `#A8E6CF` | 清透青绿 |
-| | `sky-blue` | `#87CEEB` | 主天空蓝 |
-| | `sky-deep` | `#5BA4C9` | 渐变深处 |
-| **樱瓣** | `blush-soft` | `#FFB6C1` | 柔和樱花粉 |
-| | `blush-rose` | `#E8A0B4` | 中等粉色 |
-| | `blush-deep` | `#C48B9F` | 深粉点缀 |
-| **薰衣草** | `lavender-soft` | `#DCD0FF` | 淡紫 |
-| | `lavender-deep` | `#A78BFA` | 深紫点缀 |
-| **灵魂金** | `soul-gold` | `#FCD34D` | 太阳/高亮 |
+语义层级定义在 `src/index.css`。同一场景只用一层；优先语义类，勿用散装 `text-2xl font-semibold` 替代。
 
-### 「一个字体，字重定义层级」字体规范
+| 层级 | 类名 | 用途 |
+|------|------|------|
+| Display | `text-display` | 巨大时间 |
+| Brand | `text-brand` | 词标 Orbit |
+| Headline | `text-headline` | 城市名、主标题 |
+| Title | `text-title` | 面板标题 |
+| Body | `text-body` | 正文 |
+| Caption | `text-caption` / `text-caption-small` | 提示 |
+| Overline | `text-overline` | 拉丁区块标签 |
+| Button | `text-button` | 按钮 |
+| Picker | `text-picker-selected` / `text-picker-option` | 选择器 |
+| Quote | `text-quote` | 诗意文案 |
 
-> **设计哲学**：乔布斯从 Helvetica 到 San Francisco 的演进告诉我们——一个精心选择的字体家族，胜过两个随意搭配的字体。
+### 音效
 
-**字体家族**：`Inter`（现代 UI 标杆，专为屏幕设计）
+默认首次混音含 **🧘 禅（`zen`）**（见 `useAmbientPlayer` / `globalAudio`）。偏好写入 `localStorage`（`orbit_sound_mix`）。
 
-**中文回退**：`PingFang SC` → `Hiragino Sans GB` → `Microsoft YaHei`
+- Intro 触摸后开始播放；进入主界面不中断
+- 无选中时 UI 显示音符图标；有选中时显示对应图标（可混音）
+- `InlineSoundSelector`：点击展开，点外部收起
+- 点击天空中的太阳/月亮可返回 Intro；音效不断
 
-| 层级 | CSS 类 | 字重 | 大小 | 用途示例 |
-|------|--------|------|------|----------|
-| **Display** | `text-display` | Light (300) | `text-8xl` / `text-9xl` | 巨大时间显示 `14:32` |
-| **Headline** | `text-headline` | Semibold (600) | `text-2xl` / `text-3xl` | 城市名 `🇸🇬 Singapore` |
-| **Title** | `text-title` | Medium (500) | `text-lg` | 面板标题 `设置` |
-| **Body** | `text-body` | Regular (400) | `text-base` | 正文内容 `身体时区` |
-| **Caption** | `text-caption` | Light (300) | `text-sm` | 诗意文案、提示语 |
-| **Caption Small** | `text-caption-small` | Light (300) | `text-xs` | 最小提示 `长按唤醒` |
-| **Overline** | `text-overline` | Medium (500) | `text-xs` | 区块标签 `个人信息` |
-| **Button** | `text-button` | Light (300) | `text-sm` | 按钮文字 `确认` |
-| **Picker Selected** | `text-picker-selected` | Light (300) | `text-3xl` | 选择器当前值 |
-| **Picker Option** | `text-picker-option` | Light (300) | `text-lg` | 选择器其他选项 |
+音源与目录：`src/constants/ambientSounds.ts`、`public/audio/`。
 
-**使用规则**：
-1. **禁止混用** - 同一场景只用一个层级
-2. **语义优先** - 使用语义类名 `text-headline`，而非原子类 `text-2xl font-semibold`
-3. **一致性** - 所有组件必须使用这些预定义类，不得自定义字体样式
-
-### 设计原则
-
-1. **简约而不简陋** - 必要元素精心设计，拒绝视觉噪音
-2. **明亮而不刺眼** - 柔和马卡龙色调，保持舒适
-3. **治愈而不幼稚** - 诗意氛围，成熟审美
-4. **有机而不混乱** - 元素自然漂浮，但有秩序感
-5. **移动优先** - 所有页面交互逻辑和视觉呈现，都要考虑到手机端的效果
-
-### 🎵 音效规范
-
-> **设计哲学**：音效不是装饰，是氛围的延续。从第一次触碰到日常使用，音乐应该像呼吸一样自然流淌。
-
-**默认音效**：🧘 禅（`zen`）
-
-**首次用户**：
-- 点击 Intro 页面时，自动播放默认音效（🧘）
-- 进入主界面后，音效无缝延续，无需重新启动
-
-**回访用户**：
-- 系统记住用户上次选择的音效组合
-- Intro 页面一旦触摸，立即播放用户偏好的音效
-- 音效贯穿整个体验，从 Intro → 主界面
-
-**UI 规则**：
-- 无音效时，显示 🎵 图标（而非文字）
-- 有音效时，显示选中的 emoji 图标（最多4个）
-- 点击展开音效选择器，点击外部收起
-
-**页面交互**：
-- Intro 页面：点击/长按触发音效播放
-- 主界面：点击天体（太阳/月亮）可返回 Intro 页面
-- 音效在页面切换时不中断，保持沉浸感
-
----
-
-## 🛠 技术栈
+## 技术栈
 
 | 类别 | 技术 |
 |------|------|
-| **框架** | React 19 + TypeScript |
-| **构建工具** | Vite 7 |
-| **样式** | Tailwind CSS 3 |
-| **动画** | Framer Motion 12 |
-| **代码规范** | ESLint |
+| 框架 | React 19 + TypeScript |
+| 构建 | Vite 7 |
+| 样式 | Tailwind CSS 3 |
+| 动画 | Framer Motion 12 |
+| 规范 | ESLint |
 
----
+## 项目结构
 
-## 📁 项目结构
+以当前 `src/` 为准：
 
-```
+```text
 src/
-├── App.tsx                 # 主应用入口，管理页面状态切换
-├── main.tsx               # React 入口
-├── index.css              # 全局样式
-│
-├── components/            # React 组件
-│   ├── IntroSequence.tsx  # 🌟 开场动画序列 (星云光晕)
-│   ├── WelcomeScreen.tsx  # 欢迎页面 (Logo + Slogan)
-│   ├── OrbitSystem.tsx    # 行星轨道系统主容器
-│   ├── OrbitVisualizer.tsx # 轨道可视化渲染
-│   ├── PlanetSelector.tsx # 行星选择器 (校准界面)
-│   ├── PlanetTextures.tsx # 行星纹理定义
-│   └── StarryBackground.tsx # 星空背景
-│
-├── constants/             # 常量定义
-├── contexts/              # React Context (状态管理)
-├── core/                  # 核心逻辑
-├── hooks/                 # 自定义 Hooks
-└── types/                 # TypeScript 类型定义
+├── App.tsx                      # 阶段机：intro / reveal / timezone / returning
+├── main.tsx
+├── index.css                    # 语义字体与全局样式
+├── components/
+│   ├── IntroSequence.tsx        # Landing：品牌 + 长按光晕进入
+│   ├── TimeZoneHome.tsx         # 时区主页
+│   ├── WakeUpSheet.tsx          # 起床时间底部表单
+│   ├── SkyBackground.tsx        # 天空渐变与天体
+│   ├── InlineSoundSelector.tsx  # 音效混音选择
+│   └── icons/                   # SoundIcon、MokugyoIcon 等
+├── constants/                   # 时区、天空、音效、文案、动画
+├── core/                        # time-engine（及测试；未接入 UI）
+├── hooks/                       # useAmbientPlayer
+├── types/
+└── utils/                       # globalAudio、audioUnlock
 ```
 
----
+## 用户体验
 
-## 🌍 核心概念
+三层界面，对应三个组件：
 
-### 用户体验分层
+1. **Intro（`IntroSequence`）**：品牌与 Slogan；长按光晕进入。查询参数 `?first=true` 可强制首次流程。
+2. **校准（`WakeUpSheet`）**：首次进入主页后强制打开，确认前不可关闭；之后可点「更改起床时间」再开。
+3. **主页（`TimeZoneHome`）**：映射城市、诗意同步句、身体时间大字、音效选择、天空随小时变化。
 
-1. **第一层 - Landing Page (IntroSequence)**
-   - 极简开场，展示品牌 Logo 和 Slogan
-   - 梦幻星云光晕动画
-   - 引导用户进入主界面
+### 主页展示什么
 
-2. **第二层 - Wake-up Time Selection (WakeUpPicker)**
-   - 问用户：「你今天几点起床？」
-   - 根据起床时间计算用户的「生活时区」
-   - 时区映射城市：起床时间 → UTC偏移 → 代表城市
+- 代表城市（emoji + 英文名）与城市诗意文案（`cityPoetry`）
+- 映射时区的当前钟点（大字 Display）
+- 天空渐变与太阳/月亮位置（`SkyBackground`）
+- 音效选择器与底部「更改起床时间」
 
-3. **第三层 - Timezone Home (TimeZoneHome)**
-   
-   用户的日常主界面，核心理念：**你不是「作息不规律」，你只是住在另一个时区**。
-   
-   ### 核心功能
-   - 显示用户的「Orbit时间」（起床=6:00日出）
-   - 天空渐变随昼夜变化（晨曦 → 日间 → 黄昏 → 夜晚）
-   - 太阳/月亮沿天空弧线移动
-   - 显示「距离日落/日出还有 X 时」
-   - 显示用户所在「城市」（如伊斯坦布尔 🇹🇷）
-   
-   ### 🎯 为什么不需要「生活事件指引」
-   
-   **产品洞察**：我们最初设想添加「距离下一顿饭还有 X 时」「距离睡眠时间还有 X 时」等功能，因为日夜颠倒的用户往往不知道什么时候该吃饭、什么时候该睡觉。
-   
-   **但我们发现了更优雅的解法**：当用户切换到「身体时区」后，问题自然消失了。
-   
-   - 用户之前不知道「该几点吃午饭」，是因为无法完成「身体时钟」和「现实时间」的心理转换
-   - 现在，当 Orbit 显示 12:00，用户自然知道该吃午饭了——因为这就是午餐时间的意义
-   - 时区映射本身就提供了生活节奏的指引，无需额外的提醒功能
-   
-   > **设计哲学**：最好的设计是**让问题消失**，而不是用另一个功能去解决它。乔布斯会欣赏这种做法——我们没有增加复杂度，而是通过核心概念的正确抽象，让需求自然被满足。
-   
-   ### 时间逻辑
-   - **Orbit时间 = 用户的生理时钟映射**
-   - 用户的「起床时刻」= Orbit 的日出（6:00）
-   - 周期固定 24 小时
-   - 计算公式：`生活时区 = 本地时区 - (起床时间 - 7:00)`
-   
-   ### 地球时间
-   - 默认不显示，保持沉浸感
-   - 轻触屏幕时，地球时间优雅浮现并自动淡出
-   
-   ### 用户入口
-   - 「Change timezone」：可重新选择起床时间
-
----
+未实现（勿在文档或需求中当作已有）：地球时间轻触浮现、「距离日落/日出还有 X 时」、固定时区弹窗。
 
 ### 用户流程
 
 | 场景 | 流程 |
 |------|------|
-| 首次用户 | Landing → 选起床时间 → 进入时区主页 → 弹窗「固定时区？」 |
-| 回访用户（固定） | 直接进入时区主页（跳过Landing和选择） |
-| 回访用户（不固定） | 每次都先选起床时间 → 进入时区主页 |
-| 切换时区 | 点「Change timezone」→ 重新选择起床时间 |
+| 首次 | Intro → reveal → 主页 + 强制 WakeUpSheet；确认后写入 `orbit_wakeup_time` |
+| 回访（已保存起床时间） | 直达主页，跳过 Intro |
+| 改起床时间 | 「更改起床时间」→ WakeUpSheet → 更新 localStorage 与城市 |
+| 回 Intro | 点击太阳/月亮 → returning → Intro |
+| 调试重置 | `?reset=true` 清除所有 `orbit_*` localStorage |
 
----
+应用阶段（`App.tsx`）：`intro` | `reveal` | `timezone` | `returning`。
 
-## ⚡ 常用命令
+### 时间逻辑
+
+- 起床时刻对齐 Orbit **6:00**（日出）
+- 生活时区：`calculateLivingTimezone(wakeUpHour, localOffset)`，标准起床小时为 `STANDARD_WAKEUP_HOUR`（8）
+- 主页大字显示的是映射城市在该 UTC 偏移下的本地钟点，随秒更新
+
+## 常用命令
 
 ```bash
-# 启动开发服务器
 npm run dev
-
-# 构建生产版本
 npm run build
-
-# 预览生产构建
 npm run preview
-
-# 代码检查
 npm run lint
 ```
 
----
+部署说明见 `docs/deployment/`。生产参考：Cloudflare Pages `https://orbittz.pages.dev`。
 
-## 🎯 开发注意事项
+## 开发约定
 
-### DO ✅
-- 使用「晨曦星海」色彩系统中的 tokens
-- 保持视觉明亮治愈，纪念碑谷式简约
-- 使用柔和渐变和微妙动画
-- 组件使用函数式 + Hooks
-- 动画使用 Framer Motion，保持一致性
-- 任何 UI 变更前先讨论设计方向
+**做：**
 
-### DON'T ❌ 
-- 不要使用深色/暗黑系配色
-- 不要使用刺眼的纯色或高对比配色
-- 不要创建简陋的 MVP 风格界面
-- 不要使用机械化、生硬的过渡动画
-- 不要在未确认设计前快速实现
+- 用「晨曦星海」与 `ink` / `action` token
+- 保持明亮治愈、纪念碑谷式简约
+- 函数组件 + Hooks；动效用 Framer Motion
+- UI 方向变更前先对齐设计
 
----
+**不做：**
 
-## 📝 协作风格
+- 深色/暗黑默认主题
+- 刺眼纯色或高对比配色
+- 简陋 MVP 式界面
+- 生硬、机械化过渡
+- 未确认设计就大改视觉
 
-> **「质量优先于速度，讨论优先于实现」**
+协作原则：质量优先于速度；讨论优先于实现；视觉在浏览器里验。
 
-- 重要设计决策前先沟通
-- 保持代码整洁，组件职责单一
-- 视觉效果需要在浏览器中验证
+归档需求与旧方案：`docs/archive/`。短期连续性笔记：`docs/short-term-plan/CONTINUITY.md`。
 
----
-
-*最后更新: 2026-01-10*
+*最后对照代码更新：2026-07-25*

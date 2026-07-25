@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { getSkyGradient, isDaytime, calculateCelestialPosition, CELESTIAL_STYLES } from '../constants/skyConfig';
 import { DURATION, BREATHING, EASING } from '../constants/animationConfig';
 
@@ -15,6 +15,7 @@ interface SkyBackgroundProps {
 const AmbientCloud: React.FC<{
     position: 'top-left' | 'bottom-right';
 }> = ({ position }) => {
+    const prefersReducedMotion = useReducedMotion();
     const configs = {
         'top-left': {
             className: 'top-16 left-8 w-36 h-36',
@@ -39,45 +40,64 @@ const AmbientCloud: React.FC<{
                 background: config.background,
                 filter: `blur(${config.blur})`,
             }}
-            animate={{
-                opacity: BREATHING.ambient.opacity,
-                scale: BREATHING.ambient.scale,
-                x: [0, 5, 0],
-                y: [0, -3, 0],
-            }}
-            transition={{
-                duration: BREATHING.ambient.duration,
-                repeat: Infinity,
-                ease: EASING.breathing,
-                delay: config.delay,
-            }}
+            animate={
+                prefersReducedMotion
+                    ? { opacity: 0.4, scale: 1 }
+                    : {
+                        opacity: [...BREATHING.ambient.opacity],
+                        scale: [...BREATHING.ambient.scale],
+                        x: [0, 5, 0],
+                        y: [0, -3, 0],
+                    }
+            }
+            transition={
+                prefersReducedMotion
+                    ? undefined
+                    : {
+                        duration: BREATHING.ambient.duration,
+                        repeat: Infinity,
+                        ease: EASING.breathing,
+                        delay: config.delay,
+                    }
+            }
             aria-hidden="true"
         />
     );
 };
 
+type CelestialKind = 'sun' | 'moon';
+
 /**
  * Celestial body — warm material disc (same language as Intro enter orb)
+ * Sun ↔ moon crossfades at the day boundary; position still glides glacially.
  */
 const CelestialBody: React.FC<{
     orbitHour: number;
     onClick?: () => void;
     hidden?: boolean;
 }> = ({ orbitHour, onClick, hidden = false }) => {
+    const prefersReducedMotion = useReducedMotion();
     const daytime = isDaytime(orbitHour);
+    const kind: CelestialKind = daytime ? 'sun' : 'moon';
     const position = calculateCelestialPosition(orbitHour);
-    const style = daytime ? CELESTIAL_STYLES.sun : CELESTIAL_STYLES.moon;
 
-    const breathingAnimation = {
-        scale: BREATHING.celestial.scale,
-        opacity: BREATHING.celestial.opacity,
-    };
+    const materialTransition = prefersReducedMotion
+        ? { duration: DURATION.fast }
+        : { duration: DURATION.normal, ease: EASING.breathing };
 
-    const breathingTransition = {
-        duration: BREATHING.celestial.duration,
-        repeat: Infinity,
-        ease: EASING.breathing,
-    };
+    const materialInitial = prefersReducedMotion
+        ? { opacity: 0 }
+        : { opacity: 0, scale: 0.97 };
+    const materialAnimate = prefersReducedMotion
+        ? { opacity: 1 }
+        : { opacity: 1, scale: 1 };
+    const materialExit = prefersReducedMotion
+        ? { opacity: 0, transition: { duration: DURATION.fast } }
+        : {
+            opacity: 0,
+            scale: 0.97,
+            transition: { duration: DURATION.normal, ease: EASING.breathing },
+        };
 
     return (
         <div
@@ -85,7 +105,9 @@ const CelestialBody: React.FC<{
             style={{
                 left: `${position.left}%`,
                 top: `max(${position.top}%, calc(env(safe-area-inset-top, 0px) + 12px))`,
-                transition: `left ${DURATION.glacial}s ease-in-out, top ${DURATION.glacial}s ease-in-out`,
+                transition: prefersReducedMotion
+                    ? undefined
+                    : `left ${DURATION.glacial}s ease-in-out, top ${DURATION.glacial}s ease-in-out`,
                 pointerEvents: hidden ? 'none' : undefined,
             }}
         >
@@ -101,40 +123,67 @@ const CelestialBody: React.FC<{
                 transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
             >
                 <motion.div
-                    className="relative"
-                    animate={breathingAnimation}
-                    transition={breathingTransition}
+                    className="relative w-14 h-14"
+                    animate={
+                        prefersReducedMotion
+                            ? undefined
+                            : {
+                                scale: [...BREATHING.celestial.scale],
+                                opacity: [...BREATHING.celestial.opacity],
+                            }
+                    }
+                    transition={{
+                        duration: BREATHING.celestial.duration,
+                        repeat: Infinity,
+                        ease: EASING.breathing,
+                    }}
                 >
-                    {/* Soft outer veil — atmosphere, not bloom glare */}
-                    <motion.div
-                        className="absolute -inset-6 rounded-full blur-[28px] pointer-events-none"
-                        style={{
-                            background: daytime
-                                ? 'radial-gradient(circle, oklch(0.86 0.05 55 / 0.22) 0%, transparent 70%)'
-                                : 'radial-gradient(circle, oklch(0.82 0.04 296 / 0.18) 0%, transparent 70%)',
-                        }}
-                        animate={{
-                            opacity: [0.45, 0.65, 0.45],
-                            scale: BREATHING.glow.scale,
-                        }}
-                        transition={{
-                            duration: BREATHING.glow.duration,
-                            repeat: Infinity,
-                            ease: EASING.breathing,
-                        }}
-                        aria-hidden="true"
-                    />
+                    <AnimatePresence initial={false}>
+                        <motion.div
+                            key={kind}
+                            initial={materialInitial}
+                            animate={materialAnimate}
+                            exit={materialExit}
+                            transition={materialTransition}
+                            className="absolute inset-0"
+                            aria-hidden="true"
+                        >
+                            {/* Soft outer veil — atmosphere, not bloom glare */}
+                            <motion.div
+                                className="absolute -inset-6 rounded-full blur-[28px] pointer-events-none"
+                                style={{
+                                    background:
+                                        kind === 'sun'
+                                            ? 'radial-gradient(circle, oklch(0.86 0.05 55 / 0.22) 0%, transparent 70%)'
+                                            : 'radial-gradient(circle, oklch(0.82 0.04 296 / 0.18) 0%, transparent 70%)',
+                                }}
+                                animate={
+                                    prefersReducedMotion
+                                        ? { opacity: 0.55 }
+                                        : {
+                                            opacity: [0.45, 0.65, 0.45],
+                                            scale: [...BREATHING.glow.scale],
+                                        }
+                                }
+                                transition={{
+                                    duration: BREATHING.glow.duration,
+                                    repeat: Infinity,
+                                    ease: EASING.breathing,
+                                }}
+                            />
 
-                    {/* Material core */}
-                    <div
-                        className="relative w-14 h-14 rounded-full"
-                        style={{
-                            background: style.gradient,
-                            boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 6px oklch(0.45 0.04 40 / 0.08), ${style.shadow}`,
-                        }}
-                    >
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-transparent" />
-                    </div>
+                            {/* Material core */}
+                            <div
+                                className="relative w-14 h-14 rounded-full"
+                                style={{
+                                    background: CELESTIAL_STYLES[kind].gradient,
+                                    boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 6px oklch(0.45 0.04 40 / 0.08), ${CELESTIAL_STYLES[kind].shadow}`,
+                                }}
+                            >
+                                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-transparent" />
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
                 </motion.div>
             </motion.button>
         </div>

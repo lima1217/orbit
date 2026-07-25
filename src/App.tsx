@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IntroSequence } from './components/IntroSequence';
 import { TimeZoneHome } from './components/TimeZoneHome';
@@ -177,19 +177,15 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Wake-up Sheet */}
-      <AnimatePresence>
-        {isSheetOpen && (
-          <WakeUpSheet
-            isOpen={isSheetOpen}
-            onClose={handleSheetClose}
-            onSelect={handleWakeUpChange}
-            initialHour={wakeUpHour}
-            initialMinute={wakeUpMinute}
-            required={isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null}
-          />
-        )}
-      </AnimatePresence>
+      {/* Wake-up Sheet — presence owned inside (exit spring must run) */}
+      <WakeUpSheet
+        isOpen={isSheetOpen}
+        onClose={handleSheetClose}
+        onSelect={handleWakeUpChange}
+        initialHour={wakeUpHour}
+        initialMinute={wakeUpMinute}
+        required={isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null}
+      />
     </div>
   );
 }

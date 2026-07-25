@@ -1,128 +1,71 @@
-# Cloudflare Pages 部署指南
+# Deploy Orbit on Cloudflare Pages
 
-> 给国内朋友的备用访问方案
+国内访问的备用方案。生产域名：`https://orbittz.pages.dev`。预览部署会带 hash 子域；`orbittz.pages.dev` 始终指向当前生产。
 
-## 🌐 已部署地址
+## Why Cloudflare Pages
 
-**生产环境**: https://orbittz.pages.dev
+- 免费额度适合静态站
+- 国内节点相对 Vercel 更稳
+- 连上 Git 后，push 可自动部署
 
-> 每次部署会生成一个带 hash 的预览 URL（如 `9ac52b1c.orbittz.pages.dev`），
-> 但主域名 `orbittz.pages.dev` 始终指向最新的生产部署。
-
----
-
-## 为什么选择 Cloudflare Pages？
-
-- ✅ **免费**：无限带宽、无限请求
-- ✅ **国内友好**：Cloudflare 在国内有节点，比 Vercel 访问更稳定
-- ✅ **自动部署**：连接 Git 仓库后，每次 push 自动部署
-
----
-
-## 快速部署（CLI 方式）
+## CLI deploy
 
 ```bash
-# 构建并部署
 npm run build && npx wrangler pages deploy dist --project-name orbit-app
 ```
 
-### 2. 登录 Cloudflare Dashboard
+项目名以 Dashboard 里已有名为准（当前生产为 `orbittz` 一类命名时，以控制台显示为准）。
 
-1. 访问 [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. 登录或注册账号（免费）
+## Git 连接部署
 
-### 3. 创建 Pages 项目
-
-1. 左侧菜单点击 **"Workers & Pages"**
-2. 点击 **"Create"** 按钮
-3. 选择 **"Pages"** 标签页
-4. 点击 **"Connect to Git"**
-
-### 4. 连接 Git 仓库
-
-1. 选择 **GitHub** 或 **GitLab**
-2. 授权 Cloudflare 访问你的仓库
-3. 选择 **Orbit** 仓库
-
-### 5. 配置构建设置
-
-填写以下信息：
+1. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/)，登录
+2. **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
+3. 授权并选择 Orbit 仓库
+4. 填写构建设置：
 
 | 配置项 | 值 |
 |--------|-----|
-| **Project name** | `orbit` （或其他你喜欢的名字） |
-| **Production branch** | `main` |
-| **Framework preset** | `Vite` （会自动识别） |
-| **Build command** | `npm run build` |
-| **Build output directory** | `dist` |
-| **Root directory** | `/` （默认） |
+| Project name | 自定（生产现用 `orbittz` 对应域名） |
+| Production branch | `main` |
+| Framework preset | `Vite` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `/` |
 
-### 6. 环境变量（如需要）
+Orbit 目前不需要环境变量。保存并 Deploy。
 
-如果项目有环境变量，在 "Environment variables" 部分添加。
+## After deploy
 
-Orbit 目前不需要任何环境变量。
+你会得到 `https://<project-name>.pages.dev`。当前生产是 `https://orbittz.pages.dev`。
 
-### 7. 点击 "Save and Deploy"
+自定义域名：项目设置 → **Custom domains** → 按提示改 DNS。
 
-等待 1-2 分钟，部署完成！
+## Vs Vercel
 
----
-
-## 部署成功后
-
-你会获得一个免费域名：
-```
-https://orbit.pages.dev
-```
-
-或者自定义项目名：
-```
-https://your-project-name.pages.dev
-```
-
-### 添加自定义域名
-
-1. 在项目设置中点击 **"Custom domains"**
-2. 添加你的域名（如 `orbit.yourdomain.com`）
-3. 按提示配置 DNS 记录
-
----
-
-## 与 Vercel 对比
-
-| 特性 | Vercel | Cloudflare Pages |
+| 项 | Vercel | Cloudflare Pages |
 |------|--------|------------------|
-| 国内访问 | ❌ 经常被墙 | ✅ 相对稳定 |
-| 免费带宽 | 100GB/月 | **无限** |
-| 免费构建 | 6000分钟/月 | 500次/月 |
-| 全球 CDN | ✅ | ✅ |
+| 国内访问 | 常不稳定 | 相对稳定 |
+| 免费带宽 | 有月配额 | 额度通常更大 |
+| 免费构建 | 按分钟 | 按次数 |
+| 全球 CDN | 有 | 有 |
 
----
+细节以两家当前定价页为准。
 
-## 常见问题
+## Troubleshooting
 
-### Q: 部署失败怎么办？
+| 问题 | 做法 |
+|------|------|
+| 构建失败 | 看日志；设 `NODE_VERSION=20`；清依赖重装 |
+| 手动重跑 | Dashboard → **Retry deployment** |
+| 回滚 | **Deployments** → 选旧版本 → **Rollback** |
 
-检查构建日志，常见问题：
-1. Node 版本不兼容 → 在环境变量中设置 `NODE_VERSION=20`
-2. 依赖安装失败 → 删除 `node_modules` 重试
+## Build reference
 
-### Q: 如何手动触发重新部署？
-
-在 Cloudflare Dashboard 中点击 **"Retry deployment"**
-
-### Q: 如何回滚到之前的版本？
-
-在 **"Deployments"** 列表中找到之前的版本，点击 **"Rollback"**
-
----
-
-## 构建配置参考
-
-```
+```text
 Framework: Vite
 Build command: npm run build
 Output directory: dist
-Node.js version: 20.x (推荐)
+Node.js: 20.x
 ```
+
+*对照仓库更新：2026-07-25*

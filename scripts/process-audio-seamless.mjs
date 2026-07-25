@@ -18,7 +18,8 @@ import toWav from 'audiobuffer-to-wav';
 // 配置
 const FADE_DURATION_MS = 150; // 淡入淡出时长（毫秒）
 const INPUT_DIR = 'public/audio';
-const OUTPUT_DIR = 'public/audio/seamless';
+// 写到仓库外/临时目录，避免未引用产物进入 Pages 部署包
+const OUTPUT_DIR = 'tmp/audio-seamless';
 
 /**
  * 对音频数据应用淡入淡出
@@ -152,8 +153,9 @@ async function main() {
         console.log(`❌ 失败: ${failCount} 个文件`);
     }
     console.log('');
-    console.log('💡 提示: 处理后的文件保存为 WAV 格式');
-    console.log('   建议使用在线工具或其他软件转换回 MP3 以减小文件大小');
+    console.log('💡 提示: 处理后的文件保存为 WAV，在 tmp/audio-seamless/');
+    console.log('   转 MP3 后再覆盖 public/audio 中对应文件，勿把中间产物提交进 public/');
+    console.log('   ffmpeg -y -i IN.wav -codec:a libmp3lame -b:a 128k OUT.mp3');
 }
 
 main().catch(console.error);
