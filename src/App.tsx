@@ -1,14 +1,17 @@
 import { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { IntroSequence } from './components/IntroSequence';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { IntroSequence, INTRO_DISSOLVE_DURATION_S } from './components/IntroSequence';
 import { TimeZoneHome } from './components/TimeZoneHome';
 import { WakeUpSheet } from './components/WakeUpSheet';
+import { EASING } from './constants/animationConfig';
 import {
   calculateLivingTimezone,
   getTimezoneByOffset,
   TimezoneInfo,
   STANDARD_WAKEUP_HOUR
 } from './constants/timezones';
+
+const INTRO_DISSOLVE_MS = INTRO_DISSOLVE_DURATION_S * 1000;
 
 // Check for demo mode via URL params
 const urlParams = new URLSearchParams(window.location.search);
@@ -59,6 +62,8 @@ function getCurrentOrbitHour(timezoneOffset: number): number {
 }
 
 function App() {
+  const prefersReducedMotion = useReducedMotion();
+
   // Check if user has set wake-up time before (for first visit detection)
   const [isFirstVisit] = useState(() => {
     if (forceFirstVisit) return true;
@@ -108,7 +113,7 @@ function App() {
       if (isFirstVisit) {
         setIsSheetOpen(true);
       }
-    }, 1000);
+    }, INTRO_DISSOLVE_MS);
   }, [isFirstVisit]);
 
   // Handle wake-up time change from sheet
@@ -135,10 +140,9 @@ function App() {
   const handleReturnToIntro = useCallback(() => {
     setPhase('returning');
 
-    // 1.2秒后完成过渡
     setTimeout(() => {
       setPhase('intro');
-    }, 1200);
+    }, INTRO_DISSOLVE_MS);
   }, []);
 
   return (
@@ -153,10 +157,29 @@ function App() {
           {(phase === 'timezone' || phase === 'reveal' || phase === 'returning') && (
             <motion.div
               key="timezone-wrapper"
-              initial={{ opacity: phase === 'returning' ? 1 : 0 }}
-              animate={{ opacity: phase === 'returning' ? 0 : 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.2, ease: [0.22, 0.68, 0.35, 1.0] }}
+              initial={
+                prefersReducedMotion
+                  ? { opacity: phase === 'returning' ? 1 : 0 }
+                  : phase === 'returning'
+                    ? { opacity: 1, scale: 1, filter: 'blur(0px)' }
+                    : { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
+              }
+              animate={
+                prefersReducedMotion
+                  ? { opacity: phase === 'returning' ? 0 : 1 }
+                  : phase === 'returning'
+                    ? { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
+                    : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+              }
+              exit={
+                prefersReducedMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, scale: 0.97, filter: 'blur(2px)' }
+              }
+              transition={{
+                duration: prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S,
+                ease: EASING.out,
+              }}
               className="absolute inset-0"
             >
               <TimeZoneHome

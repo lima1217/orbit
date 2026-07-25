@@ -35,6 +35,7 @@ export const EASING = {
     smooth: [0.4, 0, 0.2, 1],      // Standard ease
     bounce: [0.68, -0.55, 0.265, 1.55],
     enter: [0, 0, 0.2, 1],         // ease-out
+    out: [0.23, 1, 0.32, 1],       // strong ease-out for UI enter/exit
     exit: [0.4, 0, 1, 1],          // ease-in
     breathing: [0.22, 0.68, 0.35, 1.0],  // Jobs: 呼吸般的有机缓动
 } as const;

@@ -95,7 +95,7 @@ src/
 ├── main.tsx
 ├── index.css                    # 语义字体与全局样式
 ├── components/
-│   ├── IntroSequence.tsx        # Landing：品牌 + 长按光晕进入
+│   ├── IntroSequence.tsx        # Landing：品牌 + 单击光晕进入
 │   ├── TimeZoneHome.tsx         # 时区主页
 │   ├── WakeUpSheet.tsx          # 起床时间底部表单
 │   ├── SkyBackground.tsx        # 天空渐变与天体
@@ -112,7 +112,7 @@ src/
 
 三层界面，对应三个组件：
 
-1. **Intro（`IntroSequence`）**：品牌与 Slogan；长按光晕进入。查询参数 `?first=true` 可强制首次流程。
+1. **Intro（`IntroSequence`）**：品牌与 Slogan；单击光晕进入。查询参数 `?first=true` 可强制首次流程。
 2. **校准（`WakeUpSheet`）**：首次进入主页后强制打开，确认前不可关闭；之后可点「更改起床时间」再开。
 3. **主页（`TimeZoneHome`）**：映射城市、诗意同步句、身体时间大字、音效选择、天空随小时变化。
 

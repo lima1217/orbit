@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
-import { motion, AnimatePresence, Variants, useReducedMotion } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { unlockAudio } from '../utils/audioUnlock';
 import { startGlobalAudio } from '../utils/globalAudio';
 import { CORE_SLOGAN } from '../constants/dailyQuotes';
+import { EASING } from '../constants/animationConfig';
 
 interface IntroSequenceProps {
     onComplete: () => void;
@@ -15,15 +16,15 @@ interface IntroSequenceProps {
 
 type IntroPhase = 'HALO' | 'DISSOLVING' | 'COMPLETE';
 
-/**
- * 乔布斯式的缓动曲线 - 呼吸般的节奏
- */
-const BREATHING_EASE: [number, number, number, number] = [0.22, 0.68, 0.35, 1.0];
+/** Intro ↔ 主页交叉淡出时长（秒）；需与 App reveal / returning 定时对齐 */
+export const INTRO_DISSOLVE_DURATION_S = 0.9;
+const INTRO_DISSOLVE_MS = INTRO_DISSOLVE_DURATION_S * 1000;
 
-const HOLD_DURATION_MS = 1000;
-const PROGRESS_RADIUS = 118;
-const PROGRESS_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RADIUS;
-const PROGRESS_STROKE = 3.5;
+/** 按下停顿，让挤压可感知；再弹起后才 dissolve，形成完整点击行程 */
+const PRESS_DOWN_MS = 240;
+const PRESS_UP_MS = 140;
+
+const SPRING_PRESS = { type: 'spring' as const, duration: 0.18, bounce: 0.18 };
 
 export const IntroSequence: React.FC<IntroSequenceProps> = ({
     onComplete,
@@ -32,19 +33,11 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
     isPrimary = false,
 }) => {
     const [phase, setPhase] = useState<IntroPhase>('HALO');
-    const [holdProgress, setHoldProgress] = useState(0);
-    const [isHolding, setIsHolding] = useState(false);
-    const [isRetracting, setIsRetracting] = useState(false);
-    const holdRafRef = useRef<number | null>(null);
-    const holdStartRef = useRef<number | null>(null);
-    const holdGenerationRef = useRef(0);
-    const retractTimeoutRef = useRef<number | null>(null);
+    const [isPressed, setIsPressed] = useState(false);
     const prefersReducedMotion = useReducedMotion();
-    // SVG url(#id) breaks on React useId colons in some browsers
-    const progressGradientId = `hold-progress-${useId().replace(/:/g, '')}`;
-
-    // 🎵 音效状态 - Intro 页面直接使用全局音效系统
     const hasStartedAudioRef = useRef(false);
+    const hasEnteredRef = useRef(false);
+    const pressTimerRef = useRef<number | null>(null);
 
     // 用户首次触摸/点击页面时播放环境音（必须由用户手势触发）
     const startAudioOnInteraction = useCallback(() => {
@@ -55,110 +48,33 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
         }
     }, []);
 
-    // Apple: critically damped spring for press; no brightness jumps (刺眼源)
-    const haloVariants: Variants = prefersReducedMotion
-        ? {
-            idle: { scale: 1, opacity: 1 },
-            holding: { scale: 1, opacity: 1 },
-        }
-        : {
-            idle: {
-                scale: [0.97, 1.03, 0.97],
-                opacity: 1,
-                transition: {
-                    duration: 5.5,
-                    repeat: Infinity,
-                    ease: "easeInOut" as const
-                }
-            },
-            holding: {
-                scale: 1.06,
-                opacity: 1,
-                transition: {
-                    type: "spring",
-                    bounce: 0,
-                    duration: 0.35,
-                }
-            }
-        };
-
-    const clearHoldLoop = useCallback(() => {
-        if (holdRafRef.current != null) {
-            cancelAnimationFrame(holdRafRef.current);
-            holdRafRef.current = null;
-        }
-        holdStartRef.current = null;
-    }, []);
-
-    const clearRetractTimeout = useCallback(() => {
-        if (retractTimeoutRef.current != null) {
-            clearTimeout(retractTimeoutRef.current);
-            retractTimeoutRef.current = null;
-        }
-    }, []);
-
-    const startHolding = useCallback(() => {
-        if (phase !== 'HALO') return;
-        if (holdRafRef.current != null) return;
-
+    const enter = useCallback(() => {
+        if (phase !== 'HALO' || hasEnteredRef.current) return;
+        hasEnteredRef.current = true;
         startAudioOnInteraction();
-        holdGenerationRef.current += 1;
-        clearRetractTimeout();
-        setIsRetracting(false);
+        setIsPressed(true);
 
-        // Reduced motion: enter immediately instead of a timed hold
         if (prefersReducedMotion) {
-            setIsHolding(true);
-            setHoldProgress(1);
+            setIsPressed(false);
             setPhase('DISSOLVING');
             return;
         }
 
-        setIsHolding(true);
-        holdStartRef.current = performance.now();
-
-        const tick = (now: number) => {
-            const start = holdStartRef.current ?? now;
-            const percentage = Math.min((now - start) / HOLD_DURATION_MS, 1);
-            setHoldProgress(percentage);
-
-            if (percentage >= 1) {
-                holdRafRef.current = null;
-                holdStartRef.current = null;
+        // 按下 → 停顿 → 弹起 → 再进入，避免「一按就走」
+        pressTimerRef.current = window.setTimeout(() => {
+            setIsPressed(false);
+            pressTimerRef.current = window.setTimeout(() => {
+                pressTimerRef.current = null;
                 setPhase('DISSOLVING');
-                return;
-            }
-
-            holdRafRef.current = requestAnimationFrame(tick);
-        };
-
-        holdRafRef.current = requestAnimationFrame(tick);
-    }, [phase, prefersReducedMotion, startAudioOnInteraction, clearRetractTimeout]);
-
-    const stopHolding = useCallback(() => {
-        clearHoldLoop();
-        setIsHolding(false);
-        if (phase === 'HALO') {
-            // Keep ring mounted while dashoffset retracts, then fade out
-            const generation = holdGenerationRef.current;
-            setIsRetracting(true);
-            requestAnimationFrame(() => {
-                if (holdGenerationRef.current !== generation) return;
-                setHoldProgress(0);
-            });
-            clearRetractTimeout();
-            retractTimeoutRef.current = window.setTimeout(() => {
-                if (holdGenerationRef.current !== generation) return;
-                setIsRetracting(false);
-                retractTimeoutRef.current = null;
-            }, 220);
-        }
-    }, [phase, clearHoldLoop, clearRetractTimeout]);
+            }, PRESS_UP_MS);
+        }, PRESS_DOWN_MS);
+    }, [phase, startAudioOnInteraction, prefersReducedMotion]);
 
     useEffect(() => () => {
-        clearHoldLoop();
-        clearRetractTimeout();
-    }, [clearHoldLoop, clearRetractTimeout]);
+        if (pressTimerRef.current != null) {
+            clearTimeout(pressTimerRef.current);
+        }
+    }, []);
 
     useEffect(() => {
         if (phase === 'DISSOLVING') {
@@ -166,7 +82,7 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
 
             const timer = setTimeout(() => {
                 setPhase('COMPLETE');
-            }, prefersReducedMotion ? 0 : 1000);
+            }, prefersReducedMotion ? 0 : INTRO_DISSOLVE_MS);
 
             return () => clearTimeout(timer);
         }
@@ -176,28 +92,30 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
         if (phase !== 'HALO') return;
         if (e.key === ' ' || e.key === 'Enter') {
             e.preventDefault();
-            if (!e.repeat) startHolding();
+            if (!e.repeat) enter();
         }
     };
 
-    const handleKeyUp = (e: React.KeyboardEvent) => {
-        if (e.key === ' ' || e.key === 'Enter') {
-            e.preventDefault();
-            stopHolding();
-        }
-    };
+    const enterHint = prefersReducedMotion ? '按 Enter 或空格进入' : '点击进入';
+    const dissolveDuration = prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S;
+    const isDissolving = phase === 'DISSOLVING' || phase === 'COMPLETE';
 
-    const progressPercent = Math.round(holdProgress * 100);
-    const holdHint = prefersReducedMotion ? '按 Enter 或空格进入' : '长按进入';
-    const showProgressRing = isHolding || holdProgress > 0 || isRetracting;
+    const contentMotion = prefersReducedMotion
+        ? { scale: 1, filter: 'blur(0px)' }
+        : isDissolving
+          ? { scale: 0.97, filter: 'blur(2px)' }
+          : { scale: 1, filter: 'blur(0px)' };
 
     return (
         <motion.div
             className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden select-none"
             onClick={startAudioOnInteraction}
             initial={{ opacity: isReturning ? 0 : 1 }}
-            animate={phase === 'DISSOLVING' || phase === 'COMPLETE' ? { opacity: 0 } : { opacity: 1 }}
-            transition={{ duration: prefersReducedMotion ? 0 : 1.2, ease: BREATHING_EASE }}
+            animate={isDissolving ? { opacity: 0 } : { opacity: 1 }}
+            transition={{
+                duration: dissolveDuration,
+                ease: EASING.out,
+            }}
         >
             {/* 背景：晨曦但降一档亮度 — 薄荷绿→暖粉，避免高 key */}
             <div
@@ -223,15 +141,17 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                     <motion.div
                         className="relative flex flex-col items-center justify-center w-full h-full page-inline pt-safe pb-safe"
                         role={isPrimary ? 'main' : undefined}
-                        initial={{ scale: isReturning ? 1.15 : 1 }}
-                        animate={phase === 'DISSOLVING' && !prefersReducedMotion ? {
-                            scale: 1.15,
-                        } : {
-                            scale: 1,
-                        }}
+                        initial={
+                            prefersReducedMotion
+                                ? { scale: 1, filter: 'blur(0px)' }
+                                : isReturning
+                                  ? { scale: 0.97, filter: 'blur(2px)' }
+                                  : { scale: 1, filter: 'blur(0px)' }
+                        }
+                        animate={contentMotion}
                         transition={{
-                            duration: prefersReducedMotion ? 0 : 1.2,
-                            ease: BREATHING_EASE,
+                            duration: dissolveDuration,
+                            ease: EASING.out,
                         }}
                     >
                         {/* ========== 氛围光晕：极低存在感 ========== */}
@@ -248,165 +168,125 @@ export const IntroSequence: React.FC<IntroSequenceProps> = ({
                             </>
                         )}
 
-                        {/* ========== 品牌 + 产品承诺 ========== */}
-                        {phase === 'HALO' && (
-                            <motion.div
-                                className="relative z-10 mb-6 text-center shrink-0"
-                                initial={false}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{
-                                    type: 'spring',
-                                    bounce: 0,
-                                    duration: prefersReducedMotion ? 0.01 : 0.5,
-                                }}
-                            >
-                                <h1 className="text-brand text-ink-primary" translate="no">
-                                    Orbit
-                                </h1>
-                                <p className="text-quote text-ink-muted mt-3 max-w-[18em] mx-auto whitespace-pre-line">
-                                    {CORE_SLOGAN.text}
-                                </p>
-                            </motion.div>
-                        )}
+                        {/* ========== 品牌 + 产品承诺（随整页淡出，不抢先消失） ========== */}
+                        <div className="relative z-10 mb-6 text-center shrink-0">
+                            <h1 className="text-brand text-ink-primary" translate="no">
+                                Orbit
+                            </h1>
+                            <p className="text-quote text-ink-muted mt-3 mx-auto w-max max-w-full leading-snug text-center">
+                                {CORE_SLOGAN.text.split('\n').map((line) => (
+                                    <span key={line} className="block whitespace-nowrap">
+                                        {line}
+                                    </span>
+                                ))}
+                            </p>
+                        </div>
 
                         {/* ========== 进入控件（光晕） ========== */}
+                        {/*
+                          按压缩放在按钮上；呼吸只做内层 opacity，避免与 whileTap/press scale 抢同一属性。
+                        */}
                         <motion.button
                             type="button"
-                            variants={haloVariants}
-                            animate={holdProgress > 0 ? "holding" : "idle"}
                             className="relative w-[min(80vw,20rem,42vh)] h-[min(80vw,20rem,42vh)] rounded-full flex items-center justify-center cursor-pointer border-0 bg-transparent p-0 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-4 focus-visible:ring-offset-[oklch(0.968_0.012_55)]"
-                            aria-label={holdHint}
-                            aria-describedby="intro-hold-hint"
+                            aria-label={enterHint}
+                            aria-describedby="intro-enter-hint"
                             aria-keyshortcuts="Enter Space"
-                            onMouseDown={startHolding}
-                            onMouseUp={stopHolding}
-                            onMouseLeave={stopHolding}
-                            onTouchStart={(e) => {
-                                e.preventDefault();
-                                startAudioOnInteraction();
-                                startHolding();
+                            onPointerDown={(e) => {
+                                // Primary press only; feel scale on finger-down, not mouseup
+                                if (e.button !== 0) return;
+                                e.stopPropagation();
+                                enter();
                             }}
-                            onTouchEnd={stopHolding}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                enter();
+                            }}
                             onKeyDown={handleKeyDown}
-                            onKeyUp={handleKeyUp}
                             disabled={phase !== 'HALO'}
+                            animate={{
+                                scale: prefersReducedMotion ? 1 : isPressed ? 0.93 : 1,
+                            }}
+                            transition={SPRING_PRESS}
                         >
-                            {/* Soft outer veil — low opacity, no bloom glare */}
-                            <span
-                                className="absolute inset-[-28px] rounded-full blur-[48px] pointer-events-none opacity-70"
+                            {/* Soft outer veil */}
+                            <motion.span
+                                className="absolute inset-[-28px] rounded-full blur-[48px] pointer-events-none"
                                 style={{
                                     background:
                                         'radial-gradient(circle, oklch(0.82 0.04 30 / 0.18) 0%, oklch(0.80 0.035 296 / 0.08) 60%, transparent 78%)',
                                 }}
+                                animate={{
+                                    opacity: prefersReducedMotion ? 0.7 : isPressed ? 0.98 : 0.7,
+                                }}
+                                transition={SPRING_PRESS}
                                 aria-hidden="true"
                             />
 
-                            {/* Warm blush-cream disc — material surface */}
+                            {/* Breathing lives on an inner wrapper — scale-free so press isn't cancelled */}
                             <motion.span
                                 className="absolute inset-[16%] rounded-full pointer-events-none"
-                                style={{
-                                    background:
-                                        'linear-gradient(155deg, oklch(0.88 0.035 40), oklch(0.84 0.055 22), oklch(0.86 0.04 55))',
-                                    boxShadow:
-                                        'inset 0 1px 0 oklch(1 0 0 / 0.4), inset 0 -3px 8px oklch(0.45 0.05 30 / 0.10), 0 14px 32px oklch(0.35 0.03 40 / 0.14)',
-                                }}
-                                animate={prefersReducedMotion ? undefined : { opacity: [0.94, 1, 0.94] }}
-                                transition={prefersReducedMotion ? undefined : { duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+                                animate={
+                                    prefersReducedMotion
+                                        ? { scale: 1, opacity: 1 }
+                                        : isPressed && !isDissolving
+                                          ? { scale: 0.88, opacity: 1 }
+                                          : isDissolving
+                                            ? { scale: 1, opacity: 0.88 }
+                                            : {
+                                                  scale: [0.97, 1.03, 0.97],
+                                                  opacity: [0.94, 1, 0.94],
+                                              }
+                                }
+                                transition={
+                                    prefersReducedMotion || isPressed || isDissolving
+                                        ? SPRING_PRESS
+                                        : { duration: 5.5, repeat: Infinity, ease: 'easeInOut' }
+                                }
                                 aria-hidden="true"
-                            />
-
-                            {/* Hold progress ring — contextual enter/exit, interruptible release */}
-                            <motion.svg
-                                className="absolute inset-0 w-full h-full pointer-events-none"
-                                viewBox="0 0 320 320"
-                                aria-hidden="true"
-                                initial={false}
-                                animate={{
-                                    opacity: showProgressRing ? 1 : 0,
-                                    scale: showProgressRing ? 1 : 0.96,
-                                    rotate: -90,
-                                }}
-                                transition={{
-                                    opacity: {
-                                        duration: isHolding ? 0.12 : 0.15,
-                                        ease: 'easeOut',
-                                    },
-                                    scale: {
-                                        type: 'spring',
-                                        duration: 0.3,
-                                        bounce: 0,
-                                    },
-                                    rotate: { duration: 0 },
-                                }}
                             >
-                                <defs>
-                                    {/* Soft bloom — sRGB so warm stroke stays peach, not olive */}
-                                    <filter
-                                        id={`${progressGradientId}-glow`}
-                                        x="-30%"
-                                        y="-30%"
-                                        width="160%"
-                                        height="160%"
-                                        colorInterpolationFilters="sRGB"
-                                    >
-                                        <feGaussianBlur stdDeviation="1.1" result="blur" />
-                                        <feMerge>
-                                            <feMergeNode in="blur" />
-                                            <feMergeNode in="SourceGraphic" />
-                                        </feMerge>
-                                    </filter>
-                                </defs>
-                                {/* Track — dawn hue with halo disc, structure only */}
-                                <circle
-                                    cx="160"
-                                    cy="160"
-                                    r={PROGRESS_RADIUS}
-                                    fill="none"
-                                    stroke="oklch(0.55 0.04 40 / 0.28)"
-                                    strokeWidth={PROGRESS_STROKE}
-                                />
-                                {/* Progress fill — dawn peach (H≈40 with disc/glow); mid L for cream-bg contrast */}
-                                <circle
-                                    cx="160"
-                                    cy="160"
-                                    r={PROGRESS_RADIUS}
-                                    fill="none"
-                                    stroke="oklch(0.64 0.092 40)"
-                                    strokeWidth={PROGRESS_STROKE}
-                                    strokeLinecap="round"
-                                    strokeDasharray={PROGRESS_CIRCUMFERENCE}
-                                    strokeDashoffset={PROGRESS_CIRCUMFERENCE * (1 - holdProgress)}
-                                    filter={`url(#${progressGradientId}-glow)`}
+                                <span
+                                    className="absolute inset-0 rounded-full"
                                     style={{
-                                        transitionProperty: 'stroke-dashoffset',
-                                        transitionDuration: isHolding ? '0ms' : '200ms',
-                                        transitionTimingFunction: 'ease-out',
+                                        background:
+                                            'linear-gradient(155deg, oklch(0.88 0.035 40), oklch(0.84 0.055 22), oklch(0.86 0.04 55))',
+                                        boxShadow:
+                                            'inset 0 1px 0 oklch(1 0 0 / 0.4), inset 0 -3px 8px oklch(0.45 0.05 30 / 0.10), 0 14px 32px oklch(0.35 0.03 40 / 0.14)',
                                     }}
                                 />
-                            </motion.svg>
+                            </motion.span>
                         </motion.button>
 
                         {/* ========== 进入提示 ========== */}
-                        {phase === 'HALO' && (
-                            <motion.p
-                                id="intro-hold-hint"
-                                className="relative z-10 mt-8 text-caption text-ink-secondary shrink-0"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: holdProgress > 0 ? 0.55 : prefersReducedMotion ? 0.95 : [0.75, 0.95, 0.75] }}
-                                transition={
-                                    holdProgress > 0 || prefersReducedMotion
-                                        ? { duration: 0.2 }
-                                        : { duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1.2 }
-                                }
-                            >
-                                {holdHint}
-                            </motion.p>
-                        )}
-
-                        {/* Live region for hold progress (screen readers) */}
-                        <div className="sr-only" role="status" aria-live="polite">
-                            {holdProgress > 0 && holdProgress < 1 ? `进入进度 ${progressPercent}%` : ''}
-                        </div>
+                        <motion.p
+                            id="intro-enter-hint"
+                            className="relative z-10 mt-8 text-caption text-ink-secondary shrink-0"
+                            initial={{ opacity: 0 }}
+                            animate={
+                                isPressed
+                                    ? { opacity: 0.45 }
+                                    : {
+                                          opacity: prefersReducedMotion
+                                              ? 0.95
+                                              : [0.75, 0.95, 0.75],
+                                      }
+                            }
+                            transition={
+                                isPressed || prefersReducedMotion
+                                    ? {
+                                          duration: prefersReducedMotion ? 0 : 0.16,
+                                          ease: EASING.out,
+                                      }
+                                    : {
+                                          duration: 3.2,
+                                          repeat: Infinity,
+                                          ease: 'easeInOut',
+                                          delay: 1.2,
+                                      }
+                            }
+                        >
+                            {enterHint}
+                        </motion.p>
                     </motion.div>
                 )}
             </AnimatePresence>
