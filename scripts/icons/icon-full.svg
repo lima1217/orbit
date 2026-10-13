@@ -1,0 +1,51 @@
+<!--
+  逆旅 · 应用图标母版（满版，供 apple-touch-icon 与 PWA maskable 使用）
+  与 Intro 同一语言：晨曦天空 + 细轨道 + 一颗太阳。
+  左侧 9 点钟方向是「起床 = 日出」点，暖色弧线是醒来后走过的路。
+  所有元素落在 maskable 安全圆（半径 0.4 × 512 ≈ 205）以内。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#BFE0EC"/>
+      <stop offset="0.55" stop-color="#EAEFE6"/>
+      <stop offset="1" stop-color="#F8E6D6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="150" cy="150" r="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF6DC" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="disc" cx="256" cy="256" r="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </radialGradient>
+    <linearGradient id="trail" x1="106" y1="256" x2="150" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F1C27F"/>
+      <stop offset="1" stop-color="#E9967F"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#FFFBEA"/>
+      <stop offset="0.6" stop-color="#F6C987"/>
+      <stop offset="1" stop-color="#EBA07A"/>
+    </radialGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+
+  <!-- Orbit -->
+  <circle cx="256" cy="256" r="150" fill="url(#disc)"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#3B3430" stroke-opacity="0.26" stroke-width="5"/>
+
+  <!-- 醒来轨迹：从日出点（左）到太阳 -->
+  <path d="M106 256 A150 150 0 0 1 149.93 149.93" fill="none" stroke="url(#trail)" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="106" cy="256" r="9" fill="#FFFDF7" stroke="#F1C27F" stroke-width="4.5"/>
+
+  <!-- Sun -->
+  <circle cx="149.93" cy="149.93" r="62" fill="url(#halo)"/>
+  <circle cx="149.93" cy="149.93" r="27" fill="url(#sun)"/>
+</svg>

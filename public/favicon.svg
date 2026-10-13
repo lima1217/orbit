@@ -1,0 +1,21 @@
+<!--
+  逆旅 · 小尺寸图标母版（favicon 16 / 32 / 48）
+  同一图形，但为小尺寸加粗：轨道更粗、太阳更大、去掉醒来轨迹与光晕细节；圆角底。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#BFE0EC"/>
+      <stop offset="1" stop-color="#F8E6D6"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.35" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#FFF6DA"/>
+      <stop offset="0.55" stop-color="#F3B871"/>
+      <stop offset="1" stop-color="#E48E6C"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#sky)"/>
+  <circle cx="32" cy="32" r="19" fill="none" stroke="#3B3430" stroke-opacity="0.45" stroke-width="3.5"/>
+  <circle cx="18.56" cy="18.56" r="7.5" fill="url(#sun)" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="1.5"/>
+</svg>

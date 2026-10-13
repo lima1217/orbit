@@ -8,97 +8,83 @@ export interface AmbientSound {
     name: string;
     nameEn: string;
     src: string;
-    icon: string;
 }
 
 export const AMBIENT_SOUNDS: AmbientSound[] = [
-    // 第一排：🧘 🔔 木鱼(SVG) 🌲
+    // 第一排：静心 颂钵 木鱼 春山（图标见 icons/SoundIcon）
     {
         id: 'zen',
         name: '静心',
         nameEn: 'Zen Ambience',
         src: '/audio/intro-ambient.mp3',
-        icon: '🧘',
     },
     {
         id: 'singing-bowl',
         name: '颂钵',
         nameEn: 'Singing Bowl',
         src: '/audio/singing-bowl-raw.mp3',
-        icon: '🔔',
     },
     {
         id: 'mokugyo',
         name: '木鱼',
         nameEn: 'Mokugyo',
         src: '/audio/mokugyo.mp3',
-        // Unicode 无木鱼；实际渲染见 SoundIcon → MokugyoIcon
-        icon: '木',
     },
     {
         id: 'forest',
         name: '春山',
         nameEn: 'Spring Mountain',
         src: '/audio/spring-mountain.mp3',
-        icon: '🌲',
     },
-    // 第二排：🎐 🐱 ☔️ 🌙
+    // 第二排：风铃 猫咪 雨伞 夏夜
     {
         id: 'wind-chime',
         name: '风铃',
         nameEn: 'Wind Chime',
         src: '/audio/wind-chime.mp3',
-        icon: '🎐',
     },
     {
         id: 'cat',
         name: '猫咪',
         nameEn: 'Cat Meowing',
         src: '/audio/cat-full.mp3',
-        icon: '🐱',
     },
     {
         id: 'umbrella',
         name: '雨伞',
         nameEn: 'Rain on Umbrella',
         src: '/audio/umbrella-full.mp3',
-        icon: '☔️',
     },
     {
         id: 'insects',
         name: '夏夜',
         nameEn: 'Summer Night',
         src: '/audio/summer-night.mp3',
-        icon: '🌙',
     },
-    // 第三排：💧 🌧 🌊 🔥
+    // 第三排：水滴 落雨 海岸 篝火
     {
         id: 'water-drop',
         name: '水滴',
         nameEn: 'Water Drops',
         src: '/audio/water-drop.mp3',
-        icon: '💧',
     },
     {
         id: 'rain',
         name: '落雨',
         nameEn: 'Rainfall',
         src: '/audio/rainfall.mp3',
-        icon: '🌧',
     },
     {
         id: 'ocean',
         name: '海岸',
         nameEn: 'Ocean Coast',
         src: '/audio/ocean-coast.mp3',
-        icon: '🌊',
     },
     {
         id: 'bonfire',
         name: '篝火',
         nameEn: 'Bonfire',
         src: '/audio/bonfire.mp3',
-        icon: '🔥',
     },
 ];
 
