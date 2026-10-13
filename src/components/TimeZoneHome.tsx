@@ -1,218 +1,189 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import {
-    formatOrbitTime,
-    TimezoneInfo
-} from '../constants/timezones';
-import { DURATION, EASING, ENTRANCE_DELAYS, FADE_IN } from '../constants/animationConfig';
-import { SkyBackground } from './SkyBackground';
-import { getSyncStatement } from '../constants/cityPoetry';
+import React from 'react';
+import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer-motion';
+import { formatOrbitTime, TimezoneInfo } from '../constants/timezones';
+import { getDayPhase } from '../constants/cityPoetry';
+import { OrbitDial } from './OrbitDial';
 import { InlineSoundSelector } from './InlineSoundSelector';
+import { formatUtc } from './WakeUpPicker';
 import { useAmbientPlayer } from '../hooks/useAmbientPlayer';
+import { SunriseIcon, ShareIcon, RouteIcon } from './icons/LineIcon';
 
 interface TimeZoneHomeProps {
-    wakeUpTime: Date;
     timezone: TimezoneInfo;
-    onChangeTimezone: () => void;
-    onReturnToIntro?: () => void;
-    /**
-     * Intro → 主页交叉淡出中。
-     * 内容保持完整可见，由 App 层 wrapper 做与回退对称的整页透明度过渡。
-     */
-    isTransitioningFromIntro?: boolean;
+    /** 映射城市当地小时（0–24） */
+    orbitHour: number;
+    now: Date;
+    wakeUpHour: number;
+    wakeUpMinute: number;
+    onChangeWakeUp: () => void;
+    onReturnToIntro: () => void;
+    onOpenJourney: () => void;
+    onOpenShare: () => void;
+    /** 首次揭晓：逐层浮现 + 轨道描绘 */
+    reveal?: boolean;
+}
+
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+
+const pad = (n: number) => n.toString().padStart(2, '0');
+
+function describeDrift(livingOffset: number): string {
+    const local = -new Date().getTimezoneOffset() / 60;
+    // 归一到 (-12, 12]：住在 UTC−8 的北京人，是身体早了 8 小时，而不是晚了 16 小时
+    let diff = livingOffset - local;
+    if (diff > 12) diff -= 24;
+    if (diff <= -12) diff += 24;
+    if (diff === 0) return '与手表同步';
+    const n = Math.abs(diff);
+    return `${diff < 0 ? '晚' : '早'} ${Number.isInteger(n) ? n : n.toFixed(1)} 小时`;
 }
 
 export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
-    wakeUpTime: _wakeUpTime,
     timezone,
-    onChangeTimezone,
+    orbitHour,
+    now,
+    wakeUpHour,
+    wakeUpMinute,
+    onChangeWakeUp,
     onReturnToIntro,
-    isTransitioningFromIntro = false
+    onOpenJourney,
+    onOpenShare,
+    reveal = false,
 }) => {
-    // 进场节奏在挂载时锁定，避免 reveal→timezone 时 transition 翻转告重播
-    const [enterFromIntro] = useState(isTransitioningFromIntro);
+    const reduce = useReducedMotion();
+    const { selectedIds, toggleSound, isPlaying, resume, sleepAt, setSleepTimer } = useAmbientPlayer();
+    // 回访用户没有经过 Intro 的手势：首次轻触主页任意处时开始播放
+    const isPaused = selectedIds.length > 0 && !isPlaying;
+    const phase = getDayPhase(orbitHour, timezone.cityCN);
+    const time = formatOrbitTime(orbitHour);
+    const watch = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-    const [currentTime, setCurrentTime] = useState(() => {
-        const now = new Date();
-        const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-        let localHour = utcHours + timezone.offset;
-        if (localHour < 0) localHour += 24;
-        if (localHour >= 24) localHour -= 24;
-        return localHour;
-    });
-
-    useEffect(() => {
-        const readHour = () => {
-            const now = new Date();
-            const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-            let localHour = utcHours + timezone.offset;
-            if (localHour < 0) localHour += 24;
-            if (localHour >= 24) localHour -= 24;
-            return localHour;
-        };
-
-        setCurrentTime(readHour());
-        const interval = setInterval(() => setCurrentTime(readHour()), 1000);
-        return () => clearInterval(interval);
-    }, [timezone.offset]);
-
-    const { selectedIds, toggleSound } = useAmbientPlayer();
-    const [soundPickerOpen, setSoundPickerOpen] = useState(false);
-    const prefersReducedMotion = useReducedMotion();
-
-    const syncStatement = getSyncStatement(timezone.cityCN);
-    const formattedTime = formatOrbitTime(currentTime);
-
-    const identityTransition = prefersReducedMotion
-        ? { duration: DURATION.fast }
-        : { duration: DURATION.normal, ease: EASING.enter };
-
-    const identityExit = prefersReducedMotion
-        ? { opacity: 0, transition: { duration: DURATION.fast } }
-        : {
-            opacity: 0,
-            y: 8,
-            transition: { duration: DURATION.fast, ease: EASING.exit },
-        };
+    const stagger = !reduce;
+    const container: Variants = {
+        hidden: {},
+        show: { transition: { staggerChildren: stagger ? (reveal ? 0.14 : 0.06) : 0, delayChildren: reveal ? 0.2 : 0 } },
+    };
+    const item: Variants = {
+        hidden: stagger ? { opacity: 0, y: 12 } : { opacity: 0 },
+        show: { opacity: 1, y: 0, transition: { duration: reveal ? 0.9 : 0.6, ease: EASE_OUT } },
+    };
 
     return (
         <motion.div
-            // 从 Intro 进入时内容已完整，透明度交给 App wrapper（与回退对称）
-            initial={{ opacity: enterFromIntro ? 1 : 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: enterFromIntro ? 0 : 0.5 }}
-            // absolute：与 App 壳同坐标系；父级有 scale transform 时 fixed 会错位到 100vh
-            className="absolute inset-0 flex flex-col"
+            className="absolute inset-0 z-10 flex flex-col"
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0, transition: { duration: reduce ? 0 : 0.6, ease: EASE_OUT } }}
+            variants={container}
+            onPointerDown={isPaused ? resume : undefined}
         >
-            <SkyBackground
-                orbitHour={currentTime}
-                hideCelestial={false}
-                onCelestialClick={isTransitioningFromIntro ? undefined : onReturnToIntro}
-            />
-
-            <motion.main
-                id="main"
-                initial={enterFromIntro ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={
-                    enterFromIntro
-                        ? { duration: 0 }
-                        : {
-                            delay: prefersReducedMotion ? 0 : 0.08,
-                            duration: prefersReducedMotion ? DURATION.fast : 0.45,
-                            ease: EASING.enter,
-                        }
-                }
-                className="relative z-10 flex-1 flex flex-col items-center justify-center page-inline pt-safe pb-safe-lg"
-                style={{
-                    pointerEvents: isTransitioningFromIntro ? 'none' : undefined,
-                }}
-            >
-                <motion.div
-                    {...(enterFromIntro ? {} : FADE_IN)}
-                    transition={
-                        enterFromIntro
-                            ? { duration: 0 }
-                            : {
-                                delay: prefersReducedMotion ? 0 : ENTRANCE_DELAYS.header * 0.5,
-                                duration: DURATION.normal,
-                            }
-                    }
-                    className="grid w-full justify-items-center"
+            {/* Header — 词标即返回 */}
+            <motion.header variants={item} className="pt-safe page-inline flex items-center justify-between max-w-md w-full mx-auto">
+                <button
+                    type="button"
+                    onClick={onOpenShare}
+                    className="mt-3 min-w-11 min-h-11 grid place-items-center rounded-full text-ink-muted hover:text-ink-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary/40"
+                    aria-label="分享此刻"
                 >
-                    <AnimatePresence initial={false}>
-                        <motion.div
-                            key={timezone.offset}
-                            initial={
-                                enterFromIntro
-                                    ? false
-                                    : prefersReducedMotion
-                                      ? { opacity: 0 }
-                                      : { opacity: 0, y: 8 }
-                            }
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={identityExit}
-                            transition={
-                                enterFromIntro ? { duration: 0 } : identityTransition
-                            }
-                            className="col-start-1 row-start-1 flex flex-col items-center w-full"
+                    <ShareIcon size={20} />
+                </button>
+                <button
+                    type="button"
+                    onClick={onReturnToIntro}
+                    className="mt-3 min-h-11 px-4 text-wordmark text-ink-primary/70 hover:text-ink-primary transition-colors cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary/40"
+                    aria-label="回到开场"
+                >
+                    逆旅
+                </button>
+                <button
+                    type="button"
+                    onClick={onOpenJourney}
+                    className="mt-3 min-w-11 min-h-11 grid place-items-center rounded-full text-ink-muted hover:text-ink-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary/40"
+                    aria-label="逆旅行程"
+                >
+                    <RouteIcon size={20} />
+                </button>
+            </motion.header>
+
+            <main id="main" className="flex-1 flex flex-col items-center justify-center page-inline -mt-4">
+                {/* Identity */}
+                <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                        key={timezone.city}
+                        className="flex flex-col items-center text-center"
+                        variants={container}
+                        initial="hidden"
+                        animate="show"
+                        exit={{ opacity: 0, y: -8, transition: { duration: 0.25 } }}
+                    >
+                        <motion.p variants={item} className="text-overline text-ink-muted">
+                            此刻你住在
+                        </motion.p>
+                        <motion.h1
+                            variants={item}
+                            className="text-headline text-ink-primary mt-2.5 whitespace-nowrap"
+                            // 长译名（如「费尔南多·迪诺罗尼亚」）降一档，保持单行
+                            style={timezone.cityCN.length > 6 ? { fontSize: 'clamp(1.625rem, 7.5vw, 2.125rem)' } : undefined}
                         >
-                            <motion.div
-                                animate={{ opacity: soundPickerOpen ? 0.35 : 1 }}
-                                transition={{ duration: 0.3, ease: 'easeOut' }}
-                                className="text-center mb-8 max-w-sm mx-auto"
-                            >
-                                <h1 className="text-headline text-ink-primary mb-4 text-balance">
-                                    <span aria-hidden="true">{timezone.emoji}</span>{' '}
-                                    <span translate="no">{timezone.city}</span>
-                                </h1>
-                                <p className="text-quote text-ink-secondary text-pretty">
-                                    {syncStatement}
-                                </p>
-                            </motion.div>
+                            {timezone.cityCN}
+                        </motion.h1>
+                        <motion.p variants={item} className="mt-2 flex items-baseline gap-2 text-ink-muted">
+                            <span className="font-serif italic text-[1.0625rem] leading-none" translate="no">
+                                {timezone.city}
+                            </span>
+                            <span className="text-caption-small tabular-nums">{formatUtc(timezone.offset)}</span>
+                        </motion.p>
+                    </motion.div>
+                </AnimatePresence>
 
-                            <motion.div
-                                animate={{ opacity: soundPickerOpen ? 0.18 : 1 }}
-                                transition={{ duration: 0.3, ease: 'easeOut' }}
-                                className="text-center mb-8"
-                            >
-                                <p
-                                    role="timer"
-                                    aria-live="off"
-                                    aria-atomic="true"
-                                    aria-label={`身体时间 ${formattedTime}`}
-                                    className="text-display text-ink-primary tabular-nums"
-                                >
-                                    {formattedTime}
-                                </p>
-                            </motion.div>
-                        </motion.div>
-                    </AnimatePresence>
+                {/* Dial */}
+                <motion.div variants={item} className="mt-6">
+                    <OrbitDial orbitHour={orbitHour} animateIn={reveal}>
+                        <p className="text-overline text-ink-muted">{phase.label}</p>
+                        <p
+                            role="timer"
+                            aria-live="off"
+                            aria-label={`身体时间 ${time}`}
+                            className="text-display text-ink-primary mt-2"
+                        >
+                            {time}
+                        </p>
+                        <p className="text-caption-small text-ink-muted mt-2.5 tabular-nums">
+                            手表 {watch} · {describeDrift(timezone.offset)}
+                        </p>
+                    </OrbitDial>
                 </motion.div>
 
-                <motion.div
-                    {...(enterFromIntro ? {} : FADE_IN)}
-                    transition={
-                        enterFromIntro
-                            ? { duration: 0 }
-                            : {
-                                delay: prefersReducedMotion ? 0 : ENTRANCE_DELAYS.secondary * 0.55,
-                                duration: DURATION.slow,
-                            }
-                    }
-                    className="relative w-full max-w-xs min-h-11"
-                >
-                    <InlineSoundSelector
-                        selectedIds={selectedIds}
-                        onToggleSound={toggleSound}
-                        onExpandChange={setSoundPickerOpen}
-                    />
-                </motion.div>
-            </motion.main>
+                {/* Poetry */}
+                <motion.p variants={item} className="text-quote text-ink-secondary mt-7 text-center text-balance">
+                    {phase.line}
+                </motion.p>
+            </main>
 
+            {/* Bottom bar */}
             <motion.div
-                initial={enterFromIntro ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={
-                    enterFromIntro
-                        ? { duration: 0 }
-                        : {
-                            delay: prefersReducedMotion ? 0 : ENTRANCE_DELAYS.footer * 0.55,
-                            duration: DURATION.slow,
-                        }
-                }
-                className="absolute inset-x-0 bottom-0 z-50 flex justify-center page-inline pb-safe-lg"
-                style={{
-                    pointerEvents: isTransitioningFromIntro ? 'none' : undefined,
-                }}
+                variants={item}
+                className="relative z-20 flex items-end justify-between gap-3 page-inline pb-safe-lg max-w-md w-full mx-auto"
             >
                 <button
                     type="button"
-                    onClick={onChangeTimezone}
-                    className="text-button text-ink-secondary hover:text-ink-primary glass-button rounded-full min-h-11 px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
+                    onClick={onChangeWakeUp}
+                    className="glass-button min-h-11 pl-3.5 pr-4 rounded-full inline-flex items-center gap-2 text-button text-ink-secondary hover:text-ink-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary/40"
+                    aria-label={`起床时间 ${pad(wakeUpHour)}:${pad(wakeUpMinute)}，点击修改`}
                 >
-                    更改起床时间
+                    <SunriseIcon size={16} />
+                    <span>
+                        醒于 <span className="tabular-nums">{pad(wakeUpHour)}:{pad(wakeUpMinute)}</span>
+                    </span>
                 </button>
+
+                <InlineSoundSelector
+                    selectedIds={selectedIds}
+                    onToggleSound={toggleSound}
+                    isPaused={isPaused}
+                    sleepAt={sleepAt}
+                    onSetSleepTimer={setSleepTimer}
+                />
             </motion.div>
         </motion.div>
     );

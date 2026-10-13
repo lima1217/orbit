@@ -8,7 +8,7 @@ import { TimezoneInfo } from '../types/timezone';
 export type { TimezoneInfo } from '../types/timezone';
 
 /**
- * Standard wake-up time reference (7:00 AM)
+ * Standard wake-up time reference (8:00 AM)
  * Used to calculate user's "living timezone" offset
  */
 export const STANDARD_WAKEUP_HOUR = 8;
@@ -28,7 +28,7 @@ export const TIMEZONES: TimezoneInfo[] = [
     { offset: -5, city: "New York", cityCN: "纽约", country: "USA", countryCN: "美国", emoji: "🗽" },
     { offset: -4, city: "Santiago", cityCN: "圣地亚哥", country: "Chile", countryCN: "智利", emoji: "🇨🇱" },
     { offset: -3, city: "São Paulo", cityCN: "圣保罗", country: "Brazil", countryCN: "巴西", emoji: "🇧🇷" },
-    { offset: -2, city: "Fernando de Noronha", cityCN: "费尔南多-迪诺罗尼亚", country: "Brazil", countryCN: "巴西", emoji: "🏖️" },
+    { offset: -2, city: "Fernando de Noronha", cityCN: "费尔南多·迪诺罗尼亚", country: "Brazil", countryCN: "巴西", emoji: "🏖️" },
     { offset: -1, city: "Azores", cityCN: "亚速尔群岛", country: "Portugal", countryCN: "葡萄牙", emoji: "🇵🇹" },
     { offset: 0, city: "London", cityCN: "伦敦", country: "UK", countryCN: "英国", emoji: "🇬🇧" },
     { offset: 1, city: "Paris", cityCN: "巴黎", country: "France", countryCN: "法国", emoji: "🇫🇷" },
@@ -89,6 +89,14 @@ export function calculateLivingTimezone(
     if (livingOffset > 14) livingOffset -= 24;
 
     return livingOffset;
+}
+
+/**
+ * 起床小时 → 代表城市（以设备本地时区为基准）
+ */
+export function getTimezoneForWakeUp(wakeUpHour: number): TimezoneInfo {
+    const localOffset = -new Date().getTimezoneOffset() / 60;
+    return getTimezoneByOffset(calculateLivingTimezone(wakeUpHour, localOffset));
 }
 
 /**

@@ -81,6 +81,7 @@ export default {
                     'Noto Sans CJK SC',
                     'sans-serif',
                 ],
+                serif: ['Instrument Serif', 'Times New Roman', 'serif'],
                 quote: [
                     'LXGW WenKai',
                     'PingFang SC',
