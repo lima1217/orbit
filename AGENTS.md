@@ -28,7 +28,7 @@ livingOffset = localOffset - (wakeUpHour - STANDARD_WAKEUP_HOUR)
 
 偏移再映射到代表城市（`src/constants/timezones.ts`）。例如北京（UTC+8）中午 12:00 起床 → 晚 4 小时 → UTC+4（迪拜）。世界上真的有人在那个偏移迎接日出，这不是隐喻。
 
-「一天」以起床为起点：距上次起床满 20 小时，就视为新的一天（`utils/journey.needsDailyCheckIn`）。
+「一天」以起床为起点：距上次起床与上次确认中较晚的那个满 20 小时，就视为新的一天（`utils/journey.needsDailyCheckIn`）。算上确认时刻，是为了填了晚于此刻的起床时间（被算成昨天）时，不会每次打开都要重新校准。
 
 ## 用户体验
 
@@ -76,6 +76,7 @@ livingOffset = localOffset - (wakeUpHour - STANDARD_WAKEUP_HOUR)
 |----|------|
 | `orbit_wakeup_time` | 最近一次起床时间 `H:M` |
 | `orbit_last_wake` | 最近一次起床时刻（ISO），判断是否新的一天 |
+| `orbit_last_checkin` | 最近一次确认起床时间的时刻（ISO），与上一项取较晚者判断新的一天 |
 | `orbit_journey` | 行程：每天一条 `{date, hour, minute, offset, city, cityCN}`，最多 90 条 |
 | `orbit_sound_mix` | 选中的环境音 id 数组 |
 | `orbit_first_sound_played` | 首次播放标记 |
@@ -156,6 +157,7 @@ scripts/                         # generate-icons.sh 与图标母版、音频处
 - 生产网址：`https://orbit.aiwayfarer.net/`（分享卡片底部印的也是它，见 `utils/shareCard.ts` 的 `SITE`）。Cloudflare Pages 项目域名：`https://orbittz.pages.dev`。部署步骤见 `docs/deployment/`
 - `public/sw.js`：页面导航网络优先、断网回退缓存；静态资源与字体 stale-while-revalidate；环境音首次播放时整份缓存，`<audio>` 的 Range 请求从缓存切片返回 206。构建产物带 hash，页面加载后把已加载资源清单 `postMessage` 给 SW 缓存
 - 匹配缓存必须带 `ignoreVary`：Vite 给脚本 / 样式加了 `crossorigin`，响应带 `Vary: Origin`，不忽略的话离线时对不上，页面空白
+- `public/covers/<声音 id>.jpg`：微信小程序锁屏 / 系统播放器的封面（小程序只能引用网络图片），由小程序仓库的 `scripts/covers/build-covers.js` 生成；网页本身不使用
 - 改 `sw.js` 的缓存策略时提升 `CACHE` 版本号。`/sw.js` 在 `public/_headers`（Cloudflare）与 `vercel.json` 里都设为不缓存
 - 开发服务器不注册 SW；测离线用 `npm run build && npm run preview`，再停掉服务器刷新
 

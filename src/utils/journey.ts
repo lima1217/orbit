@@ -19,6 +19,8 @@ export interface JourneyEntry {
 
 const JOURNEY_KEY = 'orbit_journey';
 const LAST_WAKE_KEY = 'orbit_last_wake';
+/** 上次确认起床时间的时刻（ISO） */
+const LAST_CHECKIN_KEY = 'orbit_last_checkin';
 const MAX_ENTRIES = 90;
 const CHECK_IN_AFTER_HOURS = 20;
 
@@ -49,6 +51,7 @@ export function readJourney(): JourneyEntry[] {
 export function recordWake(hour: number, minute: number, tz: TimezoneInfo, now: Date = new Date()): void {
     const moment = wakeMomentFor(hour, minute, now);
     localStorage.setItem(LAST_WAKE_KEY, moment.toISOString());
+    localStorage.setItem(LAST_CHECKIN_KEY, now.toISOString());
 
     const entry: JourneyEntry = {
         date: localDateKey(moment),
@@ -63,9 +66,14 @@ export function recordWake(hour: number, minute: number, tz: TimezoneInfo, now: 
     localStorage.setItem(JOURNEY_KEY, JSON.stringify(next));
 }
 
-/** 是否该做今日校准：从未记录过，或距上次起床已满 20 小时 */
+/**
+ * 是否该做今日校准：从未记录过，或距「上次起床」与「上次确认」中较晚的那个已满 20 小时。
+ * 只看起床时刻的话，填了一个比现在还晚的起床时间（被算成昨天）会让每次打开都要重新校准。
+ */
 export function needsDailyCheckIn(now: Date = new Date()): boolean {
-    const last = Date.parse(localStorage.getItem(LAST_WAKE_KEY) ?? '');
-    if (!Number.isFinite(last)) return true;
+    const wake = Date.parse(localStorage.getItem(LAST_WAKE_KEY) ?? '');
+    if (!Number.isFinite(wake)) return true;
+    const checkin = Date.parse(localStorage.getItem(LAST_CHECKIN_KEY) ?? '');
+    const last = Number.isFinite(checkin) ? Math.max(wake, checkin) : wake;
     return now.getTime() - last >= CHECK_IN_AFTER_HOURS * 3_600_000;
 }
