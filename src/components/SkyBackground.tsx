@@ -1,247 +1,83 @@
 import React from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { getSkyGradient, isDaytime, calculateCelestialPosition, CELESTIAL_STYLES } from '../constants/skyConfig';
-import { DURATION, BREATHING, EASING } from '../constants/animationConfig';
+import { getSkyPalette, calculateCelestialPosition } from '../constants/skyConfig';
 
 interface SkyBackgroundProps {
+    /** 天空所对应的当地小时（0–24） */
     orbitHour: number;
-    onCelestialClick?: () => void;
-    hideCelestial?: boolean; // Hide celestial body during intro transition
 }
 
-/**
- * Ambient cloud — soft tint blobs matching Intro atmosphere
- */
-const AMBIENT_CLOUD_CONFIG = {
-    'top-left': {
-        className: 'top-16 left-8 w-36 h-36',
-        background: 'oklch(0.90 0.02 55 / 0.28)',
-        blur: '70px',
-        delay: 0,
-    },
-    'bottom-right': {
-        className: 'bottom-36 right-8 w-44 h-44',
-        background: 'oklch(0.86 0.035 20 / 0.22)',
-        blur: '90px',
-        delay: 1.5,
-    },
-} as const;
+/** 固定的星点：位置 %、大小 px、不透明度 */
+const STARS: Array<[number, number, number, number]> = [
+    [12, 9, 2, 0.9], [27, 18, 1.5, 0.6], [44, 7, 2, 0.8], [63, 14, 1.5, 0.5],
+    [81, 8, 2, 0.9], [90, 22, 1.5, 0.6], [8, 30, 1.5, 0.5], [36, 27, 1.5, 0.7],
+    [72, 31, 2, 0.6], [55, 24, 1.5, 0.5], [19, 42, 1.5, 0.4], [86, 40, 1.5, 0.5],
+];
 
-const AmbientCloud: React.FC<{
-    position: 'top-left' | 'bottom-right';
-}> = ({ position }) => {
-    const prefersReducedMotion = useReducedMotion();
-    const config = AMBIENT_CLOUD_CONFIG[position];
-
-    return (
-        <motion.div
-            className={`absolute rounded-full ${config.className}`}
-            style={{
-                background: config.background,
-                filter: `blur(${config.blur})`,
-            }}
-            animate={
-                prefersReducedMotion
-                    ? { opacity: 0.4, scale: 1 }
-                    : {
-                        opacity: [...BREATHING.ambient.opacity],
-                        scale: [...BREATHING.ambient.scale],
-                        x: [0, 5, 0],
-                        y: [0, -3, 0],
-                    }
-            }
-            transition={
-                prefersReducedMotion
-                    ? undefined
-                    : {
-                        duration: BREATHING.ambient.duration,
-                        repeat: Infinity,
-                        ease: EASING.breathing,
-                        delay: config.delay,
-                    }
-            }
-            aria-hidden="true"
-        />
-    );
-};
-
-type CelestialKind = 'sun' | 'moon';
+/** 纸纹：feTurbulence 噪点，静态平铺 */
+const GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.3  0 0 0 0 0.28  0 0 0 0 0.25  0 0 0 1 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>'
+)}")`;
 
 /**
- * Celestial body — warm material disc (same language as Intro enter orb)
- * Sun ↔ moon crossfades at the day boundary; position still glides glacially.
+ * SkyBackground — 全局常驻的天空。
+ * 所有页面共用同一片天，切换页面时只有内容在变，世界是连续的。
  */
-const CelestialBody: React.FC<{
-    orbitHour: number;
-    onClick?: () => void;
-    hidden?: boolean;
-}> = ({ orbitHour, onClick, hidden = false }) => {
-    const prefersReducedMotion = useReducedMotion();
-    const daytime = isDaytime(orbitHour);
-    const kind: CelestialKind = daytime ? 'sun' : 'moon';
-    const position = calculateCelestialPosition(orbitHour);
-
-    const materialTransition = prefersReducedMotion
-        ? { duration: DURATION.fast }
-        : { duration: DURATION.normal, ease: EASING.breathing };
-
-    const materialInitial = prefersReducedMotion
-        ? { opacity: 0 }
-        : { opacity: 0, scale: 0.97 };
-    const materialAnimate = prefersReducedMotion
-        ? { opacity: 1 }
-        : { opacity: 1, scale: 1 };
-    const materialExit = prefersReducedMotion
-        ? { opacity: 0, transition: { duration: DURATION.fast } }
-        : {
-            opacity: 0,
-            scale: 0.97,
-            transition: { duration: DURATION.normal, ease: EASING.breathing },
-        };
+export const SkyBackground: React.FC<SkyBackgroundProps> = ({ orbitHour }) => {
+    const palette = getSkyPalette(orbitHour);
+    const celestial = calculateCelestialPosition(orbitHour);
 
     return (
-        <div
-            className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-            style={{
-                left: `${position.left}%`,
-                top: `max(${position.top}%, calc(env(safe-area-inset-top, 0px) + 12px))`,
-                transition: prefersReducedMotion
-                    ? undefined
-                    : `left ${DURATION.glacial}s ease-in-out, top ${DURATION.glacial}s ease-in-out`,
-                pointerEvents: hidden ? 'none' : undefined,
-            }}
-        >
-            <motion.button
-                type="button"
-                className="relative cursor-pointer min-w-11 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-primary focus-visible:ring-offset-2"
-                onClick={onClick}
-                disabled={hidden || !onClick}
-                tabIndex={hidden ? -1 : 0}
-                aria-label="返回开场页"
-                whileHover={hidden ? undefined : { scale: 1.06 }}
-                whileTap={hidden ? undefined : { scale: 0.96 }}
-                transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
-            >
-                <motion.div
-                    className="relative w-14 h-14"
-                    animate={
-                        prefersReducedMotion
-                            ? undefined
-                            : {
-                                scale: [...BREATHING.celestial.scale],
-                                opacity: [...BREATHING.celestial.opacity],
-                            }
-                    }
-                    transition={{
-                        duration: BREATHING.celestial.duration,
-                        repeat: Infinity,
-                        ease: EASING.breathing,
-                    }}
-                >
-                    <AnimatePresence initial={false}>
-                        <motion.div
-                            key={kind}
-                            initial={materialInitial}
-                            animate={materialAnimate}
-                            exit={materialExit}
-                            transition={materialTransition}
-                            className="absolute inset-0"
-                            aria-hidden="true"
-                        >
-                            {/* Soft outer veil — atmosphere, not bloom glare */}
-                            <motion.div
-                                className="absolute -inset-6 rounded-full blur-[28px] pointer-events-none"
-                                style={{
-                                    background:
-                                        kind === 'sun'
-                                            ? 'radial-gradient(circle, oklch(0.86 0.05 55 / 0.22) 0%, transparent 70%)'
-                                            : 'radial-gradient(circle, oklch(0.82 0.04 296 / 0.18) 0%, transparent 70%)',
-                                }}
-                                animate={
-                                    prefersReducedMotion
-                                        ? { opacity: 0.55 }
-                                        : {
-                                            opacity: [0.45, 0.65, 0.45],
-                                            scale: [...BREATHING.glow.scale],
-                                        }
-                                }
-                                transition={{
-                                    duration: BREATHING.glow.duration,
-                                    repeat: Infinity,
-                                    ease: EASING.breathing,
-                                }}
-                            />
-
-                            {/* Material core */}
-                            <div
-                                className="relative w-14 h-14 rounded-full"
-                                style={{
-                                    background: CELESTIAL_STYLES[kind].gradient,
-                                    boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 6px oklch(0.45 0.04 40 / 0.08), ${CELESTIAL_STYLES[kind].shadow}`,
-                                }}
-                            >
-                                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/20 via-transparent to-transparent" />
-                            </div>
-                        </motion.div>
-                    </AnimatePresence>
-                </motion.div>
-            </motion.button>
-        </div>
-    );
-};
-
-/**
- * SkyBackground — soft washes continuous with IntroSequence
- */
-export const SkyBackground: React.FC<SkyBackgroundProps> = ({ orbitHour, onCelestialClick, hideCelestial = false }) => {
-    const gradient = getSkyGradient(orbitHour);
-
-    return (
-        <>
-            {/* Soft base so transitions never flash pure cream/white */}
+        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
+            {/* Base wash */}
             <div
-                className="absolute inset-0"
-                style={{ background: 'oklch(0.855 0.028 50)' }}
-                aria-hidden="true"
-            />
-
-            {/* Sky gradient */}
-            <div
-                className="absolute inset-0 transition-[background] duration-[3000ms] ease-out"
-                style={{ background: gradient }}
-                aria-hidden="true"
-            />
-
-            {/* Soft vignette — same rest-the-eyes treatment as Intro */}
-            <div
-                className="absolute inset-0 pointer-events-none"
+                className="absolute inset-0 transition-[background] duration-[1200ms] ease-out"
                 style={{
-                    background:
-                        'radial-gradient(ellipse 70% 60% at 50% 42%, transparent 35%, oklch(0.55 0.03 70 / 0.14) 100%)',
+                    background: `linear-gradient(180deg, ${palette.top} 0%, ${palette.bottom} 100%)`,
                 }}
-                aria-hidden="true"
             />
 
-            {/* Ambient clouds */}
-            <AmbientCloud position="top-left" />
-            <AmbientCloud position="bottom-right" />
-
-            {/* Sun or Moon */}
-            <motion.div
-                initial={{ opacity: hideCelestial ? 0 : 1 }}
-                animate={{ opacity: hideCelestial ? 0 : 1 }}
-                transition={{
-                    duration: hideCelestial ? 0 : 1.2,
-                    ease: [0.22, 0.68, 0.35, 1.0],
-                    delay: hideCelestial ? 0 : 0.3,
+            {/* Celestial halo — 一团柔光，沿天穹弧线移动 */}
+            <div
+                className="absolute inset-0 transition-[background] duration-[1200ms] ease-out"
+                style={{
+                    background: `radial-gradient(circle at ${celestial.left}% ${celestial.top}%, ${palette.glow} 0%, ${palette.glowSoft} 55%)`,
                 }}
+            />
+
+            {/* Horizon mist — 底部留白，托住控件 */}
+            <div
+                className="absolute inset-x-0 bottom-0 h-1/3"
+                style={{
+                    background: 'linear-gradient(to top, oklch(0.99 0.008 75 / 0.45), transparent)',
+                }}
+            />
+
+            {/* Stars — 只在夜里浮现；静止，不闪烁 */}
+            <div
+                className="absolute inset-0 transition-opacity duration-[2000ms]"
+                style={{ opacity: palette.night * 0.7 }}
             >
-                <CelestialBody
-                    orbitHour={orbitHour}
-                    onClick={onCelestialClick}
-                    hidden={hideCelestial}
-                />
-            </motion.div>
-        </>
+                {STARS.map(([x, y, size, alpha]) => (
+                    <span
+                        key={`${x}-${y}`}
+                        className="absolute rounded-full bg-white"
+                        style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                            width: size,
+                            height: size,
+                            opacity: alpha,
+                            boxShadow: '0 0 6px oklch(1 0 0 / 0.6)',
+                        }}
+                    />
+                ))}
+            </div>
+
+            {/* Paper grain — 极淡的纸纹，消除渐变色带，让背景像纸而不是屏幕 */}
+            <div
+                className="absolute inset-0 pointer-events-none mix-blend-multiply"
+                style={{ backgroundImage: GRAIN, backgroundSize: '160px 160px', opacity: 0.05 }}
+            />
+        </div>
     );
 };

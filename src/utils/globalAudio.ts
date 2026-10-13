@@ -15,6 +15,27 @@ const DEFAULT_SOUND_ID = 'zen';
 let globalAudios: Map<string, HTMLAudioElement> = new Map();
 let isPlaying = false;
 
+// 播放状态订阅（供 React useSyncExternalStore 读取「是否真的在响」）
+const listeners = new Set<() => void>();
+
+function setPlaying(next: boolean): void {
+    if (isPlaying === next) return;
+    isPlaying = next;
+    listeners.forEach((l) => l());
+}
+
+export function subscribeAudio(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+}
+
+/** 浏览器拦截了播放（无用户手势）：撤掉这条音轨，全部失败则回到未播放 */
+function handlePlayFailure(id: string, err: unknown): void {
+    console.log('🎵 Audio play failed:', err);
+    globalAudios.delete(id);
+    if (globalAudios.size === 0) setPlaying(false);
+}
+
 // 基础音量（会根据同时播放的音效数量动态调整）
 const BASE_VOLUME = 0.6;
 
@@ -89,22 +110,18 @@ export function startGlobalAudio(): void {
             audio.volume = calculateVolume();
             audio.play().then(() => {
                 console.log('🎵 Discrete audio started:', id);
-            }).catch(err => {
-                console.log('🎵 Audio play failed:', err);
-            });
+            }).catch(err => handlePlayFailure(id, err));
         } else {
             // 普通音效：使用淡入效果
             audio.volume = 0;
             audio.play().then(() => {
                 console.log('🎵 Audio started:', id);
                 fadeInAudio(audio!, calculateVolume(), 1000);
-            }).catch(err => {
-                console.log('🎵 Audio play failed:', err);
-            });
+            }).catch(err => handlePlayFailure(id, err));
         }
     });
 
-    isPlaying = true;
+    setPlaying(true);
 }
 
 /**
@@ -171,10 +188,7 @@ export function addSound(soundId: string, src: string): void {
         audio.play().then(() => {
             console.log('🎵 Discrete sound added:', soundId);
             adjustAllVolumes();
-        }).catch(err => {
-            console.warn('🎵 Failed to add sound:', err);
-            globalAudios.delete(soundId);
-        });
+        }).catch(err => handlePlayFailure(soundId, err));
     } else {
         // 普通音效：使用淡入效果
         audio.volume = 0;
@@ -182,13 +196,10 @@ export function addSound(soundId: string, src: string): void {
             console.log('🎵 Sound added and playing:', soundId);
             fadeInAudio(audio, calculateVolume(), 500);
             adjustAllVolumes();
-        }).catch(err => {
-            console.warn('🎵 Failed to add sound:', err);
-            globalAudios.delete(soundId);
-        });
+        }).catch(err => handlePlayFailure(soundId, err));
     }
 
-    isPlaying = true;
+    setPlaying(true);
 }
 
 /**
@@ -206,7 +217,9 @@ export function removeSound(soundId: string): void {
 
         // 如果没有音效在播放了
         if (globalAudios.size === 0) {
-            isPlaying = false;
+            clearSleep();
+            setPlaying(false);
+            notify();
         }
     });
 }
@@ -227,7 +240,7 @@ export function stopGlobalAudio(): void {
         audio.currentTime = 0;
     });
     globalAudios.clear();
-    isPlaying = false;
+    setPlaying(false);
 }
 
 /**
@@ -255,6 +268,60 @@ export function getGlobalAudioState(): { isPlaying: boolean; selectedIds: string
         isPlaying,
         selectedIds: Array.from(globalAudios.keys())
     };
+}
+
+// ---- 定时淡出（睡前用） ----
+
+let sleepTimer: ReturnType<typeof setTimeout> | undefined;
+let sleepAt: number | null = null;
+
+function notify(): void {
+    listeners.forEach((l) => l());
+}
+
+/** 全部音轨同时淡出后停止（保留用户的选择，下次轻触可再播） */
+async function fadeOutAll(duration: number): Promise<void> {
+    await Promise.all(Array.from(globalAudios.values()).map((a) => fadeOutAudio(a, duration)));
+    globalAudios.clear();
+    setPlaying(false);
+}
+
+function clearSleep(): void {
+    clearTimeout(sleepTimer);
+    sleepTimer = undefined;
+    sleepAt = null;
+}
+
+/** 设定 N 分钟后淡出；传 null 取消 */
+export function setSleepTimer(minutes: number | null): void {
+    clearSleep();
+    if (minutes) {
+        sleepAt = Date.now() + minutes * 60_000;
+        sleepTimer = setTimeout(() => {
+            clearSleep();
+            notify();
+            void fadeOutAll(8000);
+        }, minutes * 60_000);
+    }
+    notify();
+}
+
+/** 定时淡出的时刻（epoch ms），未设定为 null */
+export function getSleepAt(): number | null {
+    return sleepAt;
+}
+
+/**
+ * 后台标签页的计时器可能被浏览器推迟：回到前台时若已过点，立刻补执行
+ */
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && sleepAt !== null && Date.now() >= sleepAt) {
+            clearSleep();
+            notify();
+            void fadeOutAll(1500);
+        }
+    });
 }
 
 /**

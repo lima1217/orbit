@@ -1,92 +1,112 @@
 /**
- * Sky Configuration Constants
- * Soft 「晨曦星海」 palette — matched to IntroSequence luminance & chroma
+ * Sky Configuration — continuous 24h palette
+ *
+ * 天空在关键帧之间按小时连续插值（OKLCH）。克制原则：
+ * - 同一时段只用相邻色相（不在一屏里放蓝 ↔ 杏这种互补对）
+ * - 低彩度：整屏背景 chroma ≤ 0.03，下半屏趋近纸白
+ * - 夜晚是一层雾蓝灰，依旧明亮，而不是糖果紫粉
  */
 
-// Time period boundaries (in Orbit hours)
-export const TIME_PERIODS = {
-    DAWN: { start: 5, end: 7 },
-    DAY: { start: 7, end: 17 },
-    DUSK: { start: 17, end: 19 },
-    NIGHT: { start: 19, end: 5 },
-} as const;
+export type Oklch = readonly [l: number, c: number, h: number];
 
-/**
- * Soft sky washes (oklch) — same key as Intro:
- * L ≈ 0.82–0.88, chroma low, mint ↔ warm blush family.
- * Avoid high-sat soul-gold / lavender-deep glare.
- */
-export const SKY_GRADIENTS = {
-    dawn: 'linear-gradient(180deg, oklch(0.875 0.040 40) 0%, oklch(0.865 0.035 70) 38%, oklch(0.850 0.038 200) 100%)',
-    day: 'linear-gradient(180deg, oklch(0.860 0.038 195) 0%, oklch(0.875 0.025 55) 48%, oklch(0.855 0.036 22) 100%)',
-    dusk: 'linear-gradient(180deg, oklch(0.835 0.042 25) 0%, oklch(0.850 0.038 55) 42%, oklch(0.820 0.035 295) 100%)',
-    night: 'linear-gradient(180deg, oklch(0.780 0.032 275) 0%, oklch(0.800 0.030 240) 45%, oklch(0.825 0.028 30) 100%)',
-} as const;
-
-// Celestial body positioning
-// Jobs: "天体绝不能侵入内容区域 - 这是不可协商的设计边界"
-export const CELESTIAL_POSITION = {
-    horizontalRange: 70,     // percentage of screen width (inset from edges)
-    horizontalOffset: 15,    // starting offset — keeps glow clear of viewport edges
-    verticalBase: 18,        // base vertical position (%) - 上移避免与城市名重叠
-    verticalAmplitude: 12,   // arc height (%) - 减小振幅保持在安全区域
-    safeZoneTop: 8,          // minimum top position (%) — clears notch / status bar
-} as const;
-
-// Celestial body styles — material discs, not lamps (mirrors Intro orb)
-export const CELESTIAL_STYLES = {
-    sun: {
-        gradient: 'linear-gradient(155deg, oklch(0.88 0.055 70), oklch(0.84 0.065 45), oklch(0.86 0.050 25))',
-        shadow: '0 10px 28px oklch(0.40 0.04 50 / 0.12), 0 0 36px oklch(0.85 0.06 70 / 0.18)',
-    },
-    moon: {
-        gradient: 'linear-gradient(155deg, oklch(0.90 0.018 280), oklch(0.86 0.035 296), oklch(0.84 0.040 30))',
-        shadow: '0 10px 28px oklch(0.40 0.03 280 / 0.12), 0 0 32px oklch(0.80 0.04 296 / 0.16)',
-    },
-} as const;
-
-/**
- * Get sky gradient based on current orbit hour
- */
-export function getSkyGradient(orbitHour: number): string {
-    const { DAWN, DAY, DUSK } = TIME_PERIODS;
-
-    if (orbitHour >= DAWN.start && orbitHour < DAWN.end) return SKY_GRADIENTS.dawn;
-    if (orbitHour >= DAY.start && orbitHour < DAY.end) return SKY_GRADIENTS.day;
-    if (orbitHour >= DUSK.start && orbitHour < DUSK.end) return SKY_GRADIENTS.dusk;
-    return SKY_GRADIENTS.night;
+interface SkyKeyframe {
+    hour: number;
+    top: Oklch;
+    bottom: Oklch;
+    /** 天体光晕色 */
+    glow: Oklch;
 }
 
-/**
- * Check if current time is daytime
- */
+const KEYFRAMES: SkyKeyframe[] = [
+    { hour: 0, top: [0.800, 0.030, 265], bottom: [0.860, 0.022, 255], glow: [0.95, 0.010, 260] },
+    { hour: 4, top: [0.815, 0.030, 262], bottom: [0.875, 0.024, 250], glow: [0.95, 0.010, 260] },
+    { hour: 6, top: [0.900, 0.030, 70], bottom: [0.945, 0.020, 50], glow: [0.97, 0.040, 80] },
+    { hour: 9, top: [0.910, 0.026, 215], bottom: [0.955, 0.010, 200], glow: [0.98, 0.030, 90] },
+    { hour: 12, top: [0.905, 0.028, 225], bottom: [0.955, 0.010, 200], glow: [0.98, 0.020, 95] },
+    { hour: 15, top: [0.905, 0.026, 215], bottom: [0.950, 0.012, 70], glow: [0.98, 0.030, 80] },
+    { hour: 18, top: [0.875, 0.030, 330], bottom: [0.930, 0.028, 45], glow: [0.95, 0.040, 50] },
+    { hour: 21, top: [0.820, 0.030, 285], bottom: [0.875, 0.024, 300], glow: [0.95, 0.010, 270] },
+];
+
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
+
+function lerpHue(a: number, b: number, t: number): number {
+    const d = ((b - a + 540) % 360) - 180;
+    return (a + d * t + 360) % 360;
+}
+
+function mix(a: Oklch, b: Oklch, t: number): Oklch {
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, lerpHue(a[2], b[2], t)];
+}
+
+const css = ([l, c, h]: Oklch, alpha = 1) =>
+    `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)}${alpha < 1 ? ` / ${alpha}` : ''})`;
+
+export interface SkyPalette {
+    top: string;
+    bottom: string;
+    glow: string;
+    glowSoft: string;
+    /** 0（白昼）→ 1（深夜），用于星点等夜间元素 */
+    night: number;
+}
+
+/** 0–24 → 插值后的天空色（数值形式，供 Canvas 分享卡片使用） */
+export function getSkyColors(orbitHour: number): { top: Oklch; bottom: Oklch; glow: Oklch; night: number } {
+    const h = ((orbitHour % 24) + 24) % 24;
+    let i = KEYFRAMES.length - 1;
+    for (let k = 0; k < KEYFRAMES.length; k++) {
+        if (KEYFRAMES[k].hour <= h) i = k;
+    }
+    const a = KEYFRAMES[i];
+    const b = KEYFRAMES[(i + 1) % KEYFRAMES.length];
+    const span = ((b.hour - a.hour + 24) % 24) || 24;
+    const t = smoothstep(((h - a.hour + 24) % 24) / span);
+    return {
+        top: mix(a.top, b.top, t),
+        bottom: mix(a.bottom, b.bottom, t),
+        glow: mix(a.glow, b.glow, t),
+        night: getNightness(h),
+    };
+}
+
+/** 0–24 → 插值后的天空色（CSS 字符串） */
+export function getSkyPalette(orbitHour: number): SkyPalette {
+    const c = getSkyColors(orbitHour);
+    return {
+        top: css(c.top),
+        bottom: css(c.bottom),
+        glow: css(c.glow, 0.38),
+        glowSoft: css(c.glow, 0),
+        night: c.night,
+    };
+}
+
+function getNightness(h: number): number {
+    // 19:00 渐入夜，5:00 渐出夜
+    if (h >= 20 || h < 4) return 1;
+    if (h >= 18) return (h - 18) / 2;
+    if (h < 6) return 1 - (h - 4) / 2;
+    return 0;
+}
+
 export function isDaytime(orbitHour: number): boolean {
     return orbitHour >= 6 && orbitHour < 18;
 }
 
 /**
- * Calculate celestial body position
- * Jobs: "天体轨迹必须完全避开内容区域 - 这是设计的铁律"
+ * 天体光晕在天空中的位置（百分比）
+ * 白昼：日出在左地平线 → 正午最高 → 日落右地平线；夜晚同理给月亮。
  */
 export function calculateCelestialPosition(orbitHour: number): { left: number; top: number } {
-    const { horizontalRange, horizontalOffset, verticalBase, verticalAmplitude, safeZoneTop } = CELESTIAL_POSITION;
-    const daytime = isDaytime(orbitHour);
-
-    const progress = daytime
+    const progress = isDaytime(orbitHour)
         ? (orbitHour - 6) / 12
         : orbitHour >= 18
             ? (orbitHour - 18) / 12
             : (orbitHour + 6) / 12;
 
-    // 计算垂直位置（弧形轨迹）
-    // 最高点在正午/午夜，两端在日出/日落
-    const rawTop = verticalBase - Math.sin(progress * Math.PI) * verticalAmplitude;
-
-    // 安全边界保护：确保永远不会低于安全区域
-    const top = Math.max(safeZoneTop, rawTop);
-
     return {
-        left: horizontalOffset + progress * horizontalRange,
-        top,
+        left: 8 + progress * 84,
+        top: 62 - Math.sin(progress * Math.PI) * 50,
     };
 }

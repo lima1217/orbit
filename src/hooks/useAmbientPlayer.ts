@@ -5,7 +5,7 @@
  * 音频的实际播放由 globalAudio.ts 管理
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useSyncExternalStore } from 'react';
 import {
     getSavedSoundMix,
     saveSoundMix,
@@ -13,9 +13,14 @@ import {
 } from '../constants/ambientSounds';
 import {
     isGlobalAudioPlaying,
+    subscribeAudio,
+    startGlobalAudio,
+    getSleepAt,
+    setSleepTimer,
     addSound,
     removeSound,
 } from '../utils/globalAudio';
+import { unlockAudio } from '../utils/audioUnlock';
 
 // 默认音效（首次进入时）
 const DEFAULT_SOUND_ID = 'zen';
@@ -30,27 +35,20 @@ export interface UseAmbientPlayerReturn {
     toggleSound: (soundId: string) => void;
     /** 是否有音效在播放 */
     hasSound: boolean;
+    /** 音频是否真的在响（回访用户未经手势时为 false） */
+    isPlaying: boolean;
+    /** 在用户手势中调用：开始播放已选音效 */
+    resume: () => void;
+    /** 定时淡出的时刻（epoch ms），未设定为 null */
+    sleepAt: number | null;
+    setSleepTimer: (minutes: number | null) => void;
     /** 是否是首次进入（用于显示引导动画） */
     isFirstTime: boolean;
 }
 
 export function useAmbientPlayer(): UseAmbientPlayerReturn {
-    // 检测 URL 参数是否要重置首次访问状态
-    const [isFirstTime] = useState(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('reset') === 'true') {
-            // 清除所有 Orbit 相关的 localStorage
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('orbit_')) {
-                    localStorage.removeItem(key);
-                }
-            });
-            // 清除 URL 参数，避免刷新后重复清除
-            window.history.replaceState({}, '', window.location.pathname);
-            return true;
-        }
-        return localStorage.getItem(FIRST_PLAY_KEY) !== 'true';
-    });
+    // ?reset=true 的清理在 App 模块加载时完成
+    const [isFirstTime] = useState(() => localStorage.getItem(FIRST_PLAY_KEY) !== 'true');
 
     // 选中的音效 IDs - 从 localStorage 或默认值初始化
     const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -93,10 +91,22 @@ export function useAmbientPlayer(): UseAmbientPlayerReturn {
         });
     }, []);
 
+    const isPlaying = useSyncExternalStore(subscribeAudio, isGlobalAudioPlaying);
+    const sleepAt = useSyncExternalStore(subscribeAudio, getSleepAt);
+
+    const resume = useCallback(() => {
+        unlockAudio();
+        startGlobalAudio();
+    }, []);
+
     return {
         selectedIds,
         toggleSound,
-        hasSound: selectedIds.length > 0 || isGlobalAudioPlaying(),
+        isPlaying,
+        resume,
+        sleepAt,
+        setSleepTimer,
+        hasSound: selectedIds.length > 0 || isPlaying,
         isFirstTime,
     };
 }
