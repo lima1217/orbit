@@ -1,5 +1,7 @@
 # Animation plans
 
+> 已过时（2026-10-13）：这两份计划针对旧版粉色圆盘 Intro，相关代码已在 UI 重构中整体替换（现为轨道 + 绕行太阳，见 `AGENTS.md`）。仅作历史参考，勿再据此实施。
+
 Plans produced by `improve-animations` for Orbit Intro enter + handoff. Executors should implement one plan at a time with zero reliance on chat context.
 
 | # | Title | Severity | Status | Depends on |

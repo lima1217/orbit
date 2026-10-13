@@ -1,220 +1,150 @@
-import { useState, useCallback } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { IntroSequence, INTRO_DISSOLVE_DURATION_S } from './components/IntroSequence';
+import { useState, useCallback, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { IntroSequence } from './components/IntroSequence';
+import { Calibration } from './components/Calibration';
 import { TimeZoneHome } from './components/TimeZoneHome';
 import { WakeUpSheet } from './components/WakeUpSheet';
-import { EASING } from './constants/animationConfig';
-import {
-  calculateLivingTimezone,
-  getTimezoneByOffset,
-  TimezoneInfo,
-  STANDARD_WAKEUP_HOUR
-} from './constants/timezones';
+import { JourneySheet } from './components/JourneySheet';
+import { ShareSheet } from './components/ShareSheet';
+import { SkyBackground } from './components/SkyBackground';
+import { getTimezoneForWakeUp, STANDARD_WAKEUP_HOUR } from './constants/timezones';
+import { getDailyQuote } from './constants/dailyQuotes';
+import { useNow, getHourAtOffset } from './hooks/useNow';
+import { recordWake, needsDailyCheckIn } from './utils/journey';
 
-const INTRO_DISSOLVE_MS = INTRO_DISSOLVE_DURATION_S * 1000;
-
-// Check for demo mode via URL params
-const urlParams = new URLSearchParams(window.location.search);
-const forceFirstVisit = urlParams.get('first') === 'true';
-
-// Application phases
-// intro: 显示光环
-// reveal: 光环消散，世界浮现（第一页→第二页）
-// timezone: 主界面
-// returning: 世界消散，光环浮现（第二页→第一页，完全是 reveal 的逆向）
-type AppPhase = 'intro' | 'reveal' | 'timezone' | 'returning';
-
-// Local storage keys
 const STORAGE_KEY_WAKEUP = 'orbit_wakeup_time';
 
-// Smart default: assume 7:00 AM wake-up
-const DEFAULT_WAKEUP_HOUR = STANDARD_WAKEUP_HOUR;
-const DEFAULT_WAKEUP_MINUTE = 0;
-
-/**
- * Calculate timezone info from wake-up hour
- */
-function getTimezoneFromWakeUp(hour: number): TimezoneInfo {
-  const localOffset = -new Date().getTimezoneOffset() / 60;
-  const livingOffset = calculateLivingTimezone(hour, localOffset);
-  return getTimezoneByOffset(livingOffset);
+// Debug params: ?reset=true 清空 orbit_*；?first=true 强制首次流程
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('reset') === 'true') {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('orbit_'))
+    .forEach((key) => localStorage.removeItem(key));
+  window.history.replaceState({}, '', window.location.pathname);
 }
+const forceFirstVisit = urlParams.get('first') === 'true';
 
 /**
- * Create a Date object for wake-up time today
+ * intro:     开场轨道 / 今日封面（Slogan）
+ * calibrate: 校准起床时间（首次，或每天第一次打开）
+ * home:      身体时区主页
  */
-function createWakeUpDate(hour: number, minute: number): Date {
-  const today = new Date();
-  today.setHours(hour, minute, 0, 0);
-  return today;
-}
+type AppPhase = 'intro' | 'calibrate' | 'home';
+type OpenSheet = 'none' | 'wakeup' | 'journey' | 'share';
 
-/**
- * Calculate the current orbit hour based on timezone offset
- */
-function getCurrentOrbitHour(timezoneOffset: number): number {
-  const now = new Date();
-  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60;
-  let localHour = utcHours + timezoneOffset;
-  if (localHour < 0) localHour += 24;
-  if (localHour >= 24) localHour -= 24;
-  return localHour;
+function readSavedWakeUp(): { hour: number; minute: number } | null {
+  const saved = localStorage.getItem(STORAGE_KEY_WAKEUP);
+  if (!saved) return null;
+  const [hour, minute] = saved.split(':').map(Number);
+  return Number.isFinite(hour) ? { hour, minute: minute || 0 } : null;
 }
 
 function App() {
-  const prefersReducedMotion = useReducedMotion();
+  const [saved] = useState(readSavedWakeUp);
+  /** 第一次来：使用首次校准文案 */
+  const [isFirstEver] = useState(forceFirstVisit || saved === null);
+  const [needsCalibration, setNeedsCalibration] = useState(() => isFirstEver || needsDailyCheckIn());
+  const [phase, setPhase] = useState<AppPhase>(needsCalibration ? 'intro' : 'home');
 
-  // Check if user has set wake-up time before (for first visit detection)
-  const [isFirstVisit] = useState(() => {
-    if (forceFirstVisit) return true;
-    return localStorage.getItem(STORAGE_KEY_WAKEUP) === null;
-  });
+  const [wakeUpHour, setWakeUpHour] = useState(saved?.hour ?? STANDARD_WAKEUP_HOUR);
+  const [wakeUpMinute, setWakeUpMinute] = useState(saved?.minute ?? 0);
+  /** 选择器滚动中的起床小时，用于实时预览天空 */
+  const [previewHour, setPreviewHour] = useState<number | null>(null);
+  const [openSheet, setOpenSheet] = useState<OpenSheet>('none');
 
-  // Returning users go directly to timezone, new users see intro
-  const [phase, setPhase] = useState<AppPhase>(() => {
-    if (forceFirstVisit) return 'intro';
-    // If user has saved wake-up time, skip intro and go directly to main page
-    return localStorage.getItem(STORAGE_KEY_WAKEUP) !== null ? 'timezone' : 'intro';
-  });
+  const now = useNow();
+  const timezone = getTimezoneForWakeUp(wakeUpHour);
+  const orbitHour = getHourAtOffset(now, timezone.offset);
+  const skyTimezone = previewHour === null ? timezone : getTimezoneForWakeUp(previewHour);
+  const skyHour = getHourAtOffset(now, skyTimezone.offset);
+  const quote = getDailyQuote();
 
-  // Initialize wake-up time (from storage or smart default)
-  const [wakeUpHour, setWakeUpHour] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_WAKEUP);
-    if (saved) {
-      const [h] = saved.split(':').map(Number);
-      return h;
-    }
-    return DEFAULT_WAKEUP_HOUR;
-  });
+  // 页面长时间挂着、隔天再切回来：重新翻开今日封面
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !needsDailyCheckIn()) return;
+      setOpenSheet('none');
+      setNeedsCalibration(true);
+      setPhase('intro');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
-  const [wakeUpMinute, setWakeUpMinute] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_WAKEUP);
-    if (saved) {
-      const [, m] = saved.split(':').map(Number);
-      return m;
-    }
-    return DEFAULT_WAKEUP_MINUTE;
-  });
+  const handleEnter = useCallback(() => {
+    setPhase(needsCalibration ? 'calibrate' : 'home');
+  }, [needsCalibration]);
 
-  // Derived state
-  const wakeUpTime = createWakeUpDate(wakeUpHour, wakeUpMinute);
-  const timezone = getTimezoneFromWakeUp(wakeUpHour);
-
-  // Sheet state
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  // Handle intro completion - seamless transition via reveal phase
-  const handleIntroComplete = useCallback(() => {
-    setPhase('reveal');
-
-    setTimeout(() => {
-      setPhase('timezone');
-      // 首次用户：世界浮现后立刻校准起床时间（不自动写入默认值）
-      if (isFirstVisit) {
-        setIsSheetOpen(true);
-      }
-    }, INTRO_DISSOLVE_MS);
-  }, [isFirstVisit]);
-
-  // Handle wake-up time change from sheet
-  const handleWakeUpChange = useCallback((hour: number, minute: number) => {
+  const commitWakeUp = useCallback((hour: number, minute: number) => {
     setWakeUpHour(hour);
     setWakeUpMinute(minute);
+    setPreviewHour(null);
     localStorage.setItem(STORAGE_KEY_WAKEUP, `${hour}:${minute}`);
+    recordWake(hour, minute, getTimezoneForWakeUp(hour));
   }, []);
 
-  // Handle change timezone request
-  const handleChangeTimezone = useCallback(() => {
-    setIsSheetOpen(true);
-  }, []);
+  const handleCalibrated = useCallback((hour: number, minute: number) => {
+    commitWakeUp(hour, minute);
+    setNeedsCalibration(false);
+    setPhase('home');
+  }, [commitWakeUp]);
 
-  // 首次校准：确认前不允许关掉 Sheet
-  const handleSheetClose = useCallback(() => {
-    if (isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null) {
-      return;
-    }
-    setIsSheetOpen(false);
-  }, [isFirstVisit]);
-
-  // Handle return to intro - 完全是 reveal 的逆向
-  const handleReturnToIntro = useCallback(() => {
-    setPhase('returning');
-
-    setTimeout(() => {
-      setPhase('intro');
-    }, INTRO_DISSOLVE_MS);
-  }, []);
+  const closeSheet = useCallback(() => setOpenSheet('none'), []);
 
   return (
     <>
-      {/* Background UI is inert while the sheet is open (focus + AT isolation) */}
-      <div
-        className="relative h-dvh overflow-hidden"
-        inert={isSheetOpen}
-      >
-        {/* TimeZoneHome - 在 timezone/reveal/returning 阶段显示 */}
-        <AnimatePresence>
-          {(phase === 'timezone' || phase === 'reveal' || phase === 'returning') && (
-            <motion.div
-              key="timezone-wrapper"
-              initial={
-                prefersReducedMotion
-                  ? { opacity: phase === 'returning' ? 1 : 0 }
-                  : phase === 'returning'
-                    ? { opacity: 1, scale: 1 }
-                    : { opacity: 0, scale: 0.97 }
-              }
-              animate={
-                prefersReducedMotion
-                  ? { opacity: phase === 'returning' ? 0 : 1 }
-                  : phase === 'returning'
-                    ? { opacity: 0, scale: 0.97 }
-                    : { opacity: 1, scale: 1 }
-              }
-              exit={
-                prefersReducedMotion
-                  ? { opacity: 0 }
-                  : { opacity: 0, scale: 0.97 }
-              }
-              transition={{
-                duration: prefersReducedMotion ? 0 : INTRO_DISSOLVE_DURATION_S,
-                ease: EASING.out,
-              }}
-              className="absolute inset-0 origin-center"
-            >
-              <TimeZoneHome
-                wakeUpTime={wakeUpTime}
-                timezone={timezone}
-                onChangeTimezone={handleChangeTimezone}
-                onReturnToIntro={handleReturnToIntro}
-                isTransitioningFromIntro={phase === 'reveal'}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Shell is inert while a sheet is open (focus + AT isolation) */}
+      <div className="relative h-dvh overflow-hidden" inert={openSheet !== 'none'}>
+        <SkyBackground orbitHour={skyHour} />
 
-        {/* IntroSequence - 在 intro/reveal/returning 阶段显示 */}
         <AnimatePresence>
-          {(phase === 'intro' || phase === 'reveal' || phase === 'returning') && (
-            <IntroSequence
-              key="intro"
-              onComplete={handleIntroComplete}
-              targetOrbitHour={getCurrentOrbitHour(timezone.offset)}
-              isReturning={phase === 'returning'}
-              isPrimary={phase === 'intro'}
+          {phase === 'intro' && <IntroSequence key="intro" onEnter={handleEnter} quote={quote} />}
+
+          {phase === 'calibrate' && (
+            <Calibration
+              key="calibrate"
+              initialHour={wakeUpHour}
+              initialMinute={wakeUpMinute}
+              onConfirm={handleCalibrated}
+              onPreviewHour={setPreviewHour}
+              daily={!isFirstEver}
+            />
+          )}
+
+          {phase === 'home' && (
+            <TimeZoneHome
+              key="home"
+              timezone={timezone}
+              orbitHour={orbitHour}
+              now={now}
+              wakeUpHour={wakeUpHour}
+              wakeUpMinute={wakeUpMinute}
+              onChangeWakeUp={() => setOpenSheet('wakeup')}
+              onOpenJourney={() => setOpenSheet('journey')}
+              onOpenShare={() => setOpenSheet('share')}
+              onReturnToIntro={() => setPhase('intro')}
+              reveal
             />
           )}
         </AnimatePresence>
       </div>
 
-      {/* Wake-up Sheet — sibling of inert shell so dialog stays interactive */}
+      {/* Sheets are siblings of the inert shell so they stay interactive */}
       <WakeUpSheet
-        isOpen={isSheetOpen}
-        onClose={handleSheetClose}
-        onSelect={handleWakeUpChange}
+        isOpen={openSheet === 'wakeup'}
+        onClose={closeSheet}
+        onSelect={commitWakeUp}
         initialHour={wakeUpHour}
         initialMinute={wakeUpMinute}
-        required={isFirstVisit && localStorage.getItem(STORAGE_KEY_WAKEUP) === null}
+        onPreviewHour={setPreviewHour}
+      />
+      <JourneySheet isOpen={openSheet === 'journey'} onClose={closeSheet} />
+      <ShareSheet
+        isOpen={openSheet === 'share'}
+        onClose={closeSheet}
+        timezone={timezone}
+        orbitHour={orbitHour}
+        quote={quote}
       />
     </>
   );

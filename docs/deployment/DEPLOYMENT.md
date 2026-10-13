@@ -1,6 +1,6 @@
-# Deploy Orbit on Vercel
+# Deploy 逆旅 on Vercel
 
-把 Orbit 静态站部署到 Vercel。构建命令是 `npm run build`，输出目录是 `dist/`，建议 Node 20.x。
+把逆旅静态站部署到 Vercel（备用方案；生产在 Cloudflare Pages，见 [CLOUDFLARE_PAGES.md](./CLOUDFLARE_PAGES.md)）。构建命令是 `npm run build`，输出目录是 `dist/`，建议 Node 20.x。
 
 ## First deploy
 
@@ -39,15 +39,18 @@ Node: 20.x
 ```text
 dist/
 ├── index.html
-├── assets/          # CSS / JS
-└── audio/           # 环境音
+├── assets/          # CSS / JS（带 hash）
+├── audio/           # 环境音
+├── sw.js            # Service Worker（离线）
+├── manifest.json    # PWA
+└── favicon.* / icon-*.png / apple-touch-icon.png
 ```
 
 具体体积随构建变化，以本地 `npm run build` 为准。
 
 ## Config
 
-`vercel.json`：SPA fallback（路由进 `index.html`）、静态缓存。当前应用不依赖环境变量；若以后需要，在 Vercel → Settings → Environment Variables 添加。
+`vercel.json`：SPA fallback（路由进 `index.html`）、静态缓存，以及 `/sw.js` 不缓存（否则用户会卡在旧版 Service Worker 上）。当前应用不依赖环境变量；若以后需要，在 Vercel → Settings → Environment Variables 添加。
 
 ## Monitoring (optional)
 
@@ -68,5 +71,6 @@ Vercel Analytics 可看访问量、性能与地理分布。第三方可选 [Umam
 - [ ] 音频体积可接受（优先 MP3）
 - [ ] 移动端过一遍
 - [ ] 换几个本地时区/起床时间验城市映射
+- [ ] 离线：`npm run preview` 打开一次 → 停掉服务器 → 刷新，页面与字体仍在
 
-*对照仓库更新：2026-07-25*
+*对照仓库更新：2026-10-13*

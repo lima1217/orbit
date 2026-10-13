@@ -1,0 +1,3 @@
+# Cloudflare Pages：Service Worker 不能被长缓存，否则更新会卡住
+/sw.js
+  Cache-Control: no-cache

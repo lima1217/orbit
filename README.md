@@ -1,80 +1,62 @@
-# Orbit
+# 逆旅
 
-Orbit 是一款主观时间 Web 应用。一天仍是 24 小时，起点改成你的起床时刻：起床 = Orbit 日出（6:00）。你不是作息失序，你只是住在另一个时区。
+> 每个失眠的人都是流亡者，被放逐到错误的时区。
 
-本文说明产品在做什么、如何在本地跑起来、以及去哪里读更深的文档。线上可访问 [orbittz.pages.dev](https://orbittz.pages.dev)。
+逆旅是一款主观时间 Web 应用。一天仍是 24 小时，起点改成你的起床时刻：起床 = 你的日出（6:00）。你不是作息失序，你只是住在另一个时区。
 
-## What Orbit does
+名字出自苏轼「人生如逆旅，我亦是行人」。线上地址：[orbit.aiwayfarer.net](https://orbit.aiwayfarer.net/)。
 
-起床时间会映射成「生活时区」：相对标准起床小时的偏差，叠上你的本地 UTC 偏移，再落到一张代表城市表上。北京（UTC+8）中午 12:00 起床，会落到 UTC+3 一类城市（如伊斯坦布尔）。
+## 它做什么
 
-主页显示该城市钟点、天空与诗意文案。身体时钟对齐后，产品刻意不做「下一顿饭 / 该睡了」类提醒：时区映射本身承担生活节奏指引。
+起床时间会映射成「生活时区」：相对标准起床（8:00）的偏差，叠上你的本地 UTC 偏移，再落到一张代表城市表上。北京（UTC+8）中午 12:00 起床，你此刻住在迪拜（UTC+4）。
 
-你会经过三层界面：
+- **今日封面与校准**：每天第一次打开，先看见封面，再确认今天几点醒（预填昨天，一下确认）。滚动时，城市与背后的天空一起变
+- **轨道表盘**：一天是一圈轨道——左侧是你的日出，弧线是醒来后走过的路，光点是此刻
+- **逆旅行程**：这些天你住过的城市，只陈述，不评判
+- **环境音**：可叠加的白噪音，支持定时淡出
+- **分享此刻**：把「此刻我住在哪」生成一张卡片
+- **离线可用**：添加到主屏后，断网也能打开；播放过的声音会缓存
 
-1. **Intro**：品牌与 Slogan；单击光晕进入
-2. **WakeUpSheet**：选今天几点起床（首次强制确认）
-3. **TimeZoneHome**：城市、大字时间、天空、环境音；底部可 **更改起床时间**
+产品刻意不做提醒、评分与统计：时区映射本身就回答了「此刻该做什么」。看一眼，然后离开。
 
-点击太阳或月亮可回到 Intro；音效在页面间不中断。
+## 本地运行
 
-## Run locally
-
-需要本机已安装 Node.js（建议 20.x）与 npm。
-
-安装依赖并启动开发服务器：
+需要 Node.js（建议 20.x）与 npm：
 
 ```bash
 npm install
 npm run dev
 ```
 
-终端里打开 Vite 给出的本地地址（默认多为 `http://localhost:5173`）。浏览器首次进入会走 Intro；触摸后才会开始环境音。
+打开终端给出的本地地址（默认 `http://localhost:5173`）。首次进入会走封面与校准；轻触封面后才会开始环境音。
 
-其它脚本：
+其它脚本见 `package.json`。两个不那么显然的：
 
-```bash
-npm run build    # 产出到 dist/
-npm run preview  # 预览生产构建
-npm run lint
-```
+- 离线（Service Worker）只在生产构建里启用，要测就 `npm run build && npm run preview`
+- 改了应用图标的 SVG 母版后，运行 `bash scripts/generate-icons.sh` 重新生成 favicon 与 PWA 图标
 
-## Debug query params
+### 调试参数
 
-开发或验收时可用查询参数：
+- `?first=true`：强制首次流程
+- `?reset=true`：清除所有 `orbit_*` 本地数据，并去掉 URL 上的该参数
 
-- `?first=true`：强制首次 Intro 流程（忽略已保存的起床时间路由）
-- `?reset=true`：清除所有 `orbit_*` localStorage，并清掉 URL 上的该参数
+## 技术栈
 
-示例：`http://localhost:5173/?reset=true`
+React 19 + TypeScript · Vite 7 · Tailwind CSS 3 · Framer Motion 12。没有后端，数据只存在浏览器本地。
 
-## Stack
+## 部署
 
-| 层 | 选型 |
-|------|------|
-| UI | React 19 + TypeScript |
-| 构建 | Vite 7 |
-| 样式 | Tailwind CSS 3 |
-| 动画 | Framer Motion 12 |
-| 检查 | ESLint |
-
-设计 token、字体层级与目录约定写在 [AGENTS.md](./AGENTS.md)。源码入口是 `src/App.tsx`；主界面在 `src/components/TimeZoneHome.tsx`。
-
-## Deploy
+构建命令 `npm run build`，输出目录 `dist/`。
 
 | 目标 | 文档 |
 |------|------|
-| Vercel | [Deploy on Vercel](./docs/deployment/DEPLOYMENT.md) |
-| Cloudflare Pages | [Deploy on Cloudflare Pages](./docs/deployment/CLOUDFLARE_PAGES.md)（生产：[orbittz.pages.dev](https://orbittz.pages.dev)） |
+| Cloudflare Pages（生产） | [CLOUDFLARE_PAGES.md](./docs/deployment/CLOUDFLARE_PAGES.md) |
+| Vercel | [DEPLOYMENT.md](./docs/deployment/DEPLOYMENT.md) |
 
-构建命令是 `npm run build`，输出目录是 `dist/`。
-
-## More docs
+## 更多文档
 
 | 文档 | 何时打开 |
 |------|----------|
-| [AGENTS.md](./AGENTS.md) | 改产品、视觉、时区逻辑或音效前 |
-| [CONTINUITY.md](./docs/short-term-plan/CONTINUITY.md) | 查近期决策与当前工作集 |
+| [AGENTS.md](./AGENTS.md) | 改产品、视觉、时区逻辑、音效或离线策略前 |
+| [CONTINUITY.md](./docs/short-term-plan/CONTINUITY.md) | 查近期决策、做过与撤回的取舍 |
 | [docs/archive/](./docs/archive/) | 查已删除的「日常活动」「设置面板」方案 |
-
-协作约定：质量优先于速度；重要 UI 变更前先对齐设计方向。

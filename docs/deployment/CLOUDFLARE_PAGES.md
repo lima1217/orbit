@@ -1,6 +1,6 @@
-# Deploy Orbit on Cloudflare Pages
+# Deploy 逆旅 on Cloudflare Pages
 
-国内访问的备用方案。生产域名：`https://orbittz.pages.dev`。预览部署会带 hash 子域；`orbittz.pages.dev` 始终指向当前生产。
+生产网址：`https://orbit.aiwayfarer.net/`。Pages 项目域名 `https://orbittz.pages.dev` 始终指向当前生产部署；预览部署会带 hash 子域。
 
 ## Why Cloudflare Pages
 
@@ -20,7 +20,7 @@ npm run build && npx wrangler pages deploy dist --project-name orbit-app
 
 1. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/)，登录
 2. **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-3. 授权并选择 Orbit 仓库
+3. 授权并选择本仓库
 4. 填写构建设置：
 
 | 配置项 | 值 |
@@ -32,13 +32,17 @@ npm run build && npx wrangler pages deploy dist --project-name orbit-app
 | Build output directory | `dist` |
 | Root directory | `/` |
 
-Orbit 目前不需要环境变量。保存并 Deploy。
+目前不需要环境变量。保存并 Deploy。
 
 ## After deploy
 
-你会得到 `https://<project-name>.pages.dev`。当前生产是 `https://orbittz.pages.dev`。
+你会得到 `https://<project-name>.pages.dev`（当前为 `https://orbittz.pages.dev`）。
 
-自定义域名：项目设置 → **Custom domains** → 按提示改 DNS。
+自定义域名：项目设置 → **Custom domains** → 按提示改 DNS。对外生产网址是 `https://orbit.aiwayfarer.net/`；换域名时同步改 `src/utils/shareCard.ts` 的 `SITE`（分享卡片底部印的域名）。
+
+## Service Worker
+
+`public/_headers` 让 `/sw.js` 不被缓存（`Cache-Control: no-cache`），否则用户会卡在旧版 SW 上。它随 `public/` 一起复制进 `dist/`，无需额外配置。部署后在浏览器 DevTools → Application → Service Workers 确认 `sw.js` 已激活。
 
 ## Vs Vercel
 
@@ -68,4 +72,4 @@ Output directory: dist
 Node.js: 20.x
 ```
 
-*对照仓库更新：2026-07-25*
+*对照仓库更新：2026-10-13*
