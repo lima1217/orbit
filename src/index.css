@@ -1,6 +1,6 @@
 /*
  * ============================================
- * Orbit Typography System
+ * 逆旅 Typography System
  * ============================================
  * 设计哲学：一个字体家族，字重定义层级
  *
@@ -14,7 +14,10 @@
  * - Latin display / brand / overline only
  * - Never on Chinese body/caption/button/headline (CJK 字距会「散」)
  *
- * 特殊字体: LXGW WenKai Regular — 诗意引用 (.text-quote / font-quote)
+ * 特殊字体:
+ * - Instrument Serif — 拉丁展示（城市名）
+ * - 词标「逆旅」用霞鹜文楷
+ * - LXGW WenKai Regular — 诗意引用 (.text-quote / font-quote)
  * ============================================
  */
 
@@ -70,20 +73,36 @@
    * 每个层级都有明确的用途，请勿混用
    */
 
-  /* Display: 超大时间 — fluid size so narrow viewports don't clip */
+  /* Display: 身体时间 — Inter ExtraLight 衡线数字，居于轨道中心
+   * （Instrument Serif 只有旧式数字，时间会高低起伏，故数字不用衬线） */
   .text-display {
-    @apply font-light leading-none tracking-tight tabular-nums whitespace-nowrap;
-    font-size: clamp(3.75rem, 18vw, 8rem);
+    @apply font-sans leading-none whitespace-nowrap tabular-nums;
+    font-weight: 200;
+    font-size: clamp(3.5rem, 17vw, 5rem);
+    letter-spacing: -0.04em;
   }
 
-  /* Brand: Orbit 词标（仅拉丁，可字距） */
+  /* Brand: 「逆旅」词标 — 霞鹜文楷，字距拉开如题字
+   * （词标是唯一允许中文加字距的地方；右侧补等量内边距保持视觉居中） */
   .text-brand {
-    @apply text-2xl md:text-3xl font-semibold leading-none tracking-[0.12em] text-balance;
+    @apply font-quote font-normal leading-none;
+    font-size: clamp(2.75rem, 13vw, 3.5rem);
+    letter-spacing: 0.32em;
+    padding-left: 0.32em;
   }
 
-  /* Headline: 城市名、页面主标题 — 无字距（中文主标题） */
+  /* Wordmark: 主页顶部的小词标 */
+  .text-wordmark {
+    @apply font-quote font-normal text-lg leading-none;
+    letter-spacing: 0.4em;
+    padding-left: 0.4em;
+  }
+
+  /* Headline: 中文城市名 — 文楷，与词标「逆旅」同一气质；拉丁名降为副行 */
   .text-headline {
-    @apply text-2xl md:text-3xl font-semibold leading-tight text-balance;
+    @apply font-quote font-normal leading-none text-balance;
+    font-size: clamp(2.25rem, 10.5vw, 2.875rem);
+    letter-spacing: 0.06em;
   }
 
   /* Title: 面板标题 */
@@ -110,7 +129,9 @@
 
   /* Overline: 拉丁区块标签（uppercase 需要字距） */
   .text-overline {
-    @apply text-xs font-medium uppercase tracking-wider leading-normal whitespace-nowrap;
+    @apply font-medium uppercase leading-normal whitespace-nowrap;
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
   }
 
   /* Button: 中英按钮共用，无强制字距 */
@@ -148,15 +169,26 @@
   }
 
   .glass-button {
-    @apply backdrop-blur-sm transition-[background-color,transform] duration-150 ease-out active:scale-[0.96];
-    background: oklch(0.96 0.01 55 / 0.35);
+    @apply backdrop-blur-md transition-[background-color,transform,box-shadow] duration-200 ease-out active:scale-[0.96];
+    background: oklch(0.99 0.006 70 / 0.42);
     box-shadow:
-      0 0 0 1px oklch(0.40 0.02 70 / 0.08),
-      0 1px 2px -1px oklch(0.40 0.02 70 / 0.06);
+      inset 0 1px 0 oklch(1 0 0 / 0.55),
+      0 0 0 1px oklch(0.40 0.02 70 / 0.07),
+      0 6px 18px -8px oklch(0.35 0.03 260 / 0.18);
   }
 
   .glass-button:hover {
-    background: oklch(0.96 0.01 55 / 0.52);
+    background: oklch(0.99 0.006 70 / 0.6);
+  }
+
+  /* Sheet / panel surface — milky glass */
+  .glass-sheet {
+    background: oklch(0.985 0.008 75 / 0.86);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.7),
+      0 -12px 40px -12px oklch(0.35 0.03 260 / 0.18);
   }
 
   .scrollbar-hide {
