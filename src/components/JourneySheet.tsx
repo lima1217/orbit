@@ -42,7 +42,7 @@ export const JourneySheet: React.FC<JourneySheetProps> = ({ isOpen, onClose }) =
     const summary =
         entries.length <= 1
             ? '旅程从今天开始'
-            : `最近 ${Math.min(entries.length, 7)} 天，你住过 ${weekCities.size} 座城市`;
+            : `最近 ${Math.min(entries.length, 7)} 次醒来，你住过 ${weekCities.size} 座城市`;
 
     return (
         <BottomSheet isOpen={isOpen} onClose={onClose} labelledBy={titleId}>
