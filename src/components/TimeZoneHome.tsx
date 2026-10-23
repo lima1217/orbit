@@ -4,7 +4,6 @@ import { formatOrbitTime, TimezoneInfo } from '../constants/timezones';
 import { getDayPhase } from '../constants/cityPoetry';
 import { OrbitDial } from './OrbitDial';
 import { InlineSoundSelector } from './InlineSoundSelector';
-import { formatUtc } from './WakeUpPicker';
 import { useAmbientPlayer } from '../hooks/useAmbientPlayer';
 import { SunriseIcon, ShareIcon, RouteIcon } from './icons/LineIcon';
 
@@ -127,11 +126,12 @@ export const TimeZoneHome: React.FC<TimeZoneHomeProps> = ({
                         >
                             {timezone.cityCN}
                         </motion.h1>
-                        <motion.p variants={item} className="mt-2 flex items-baseline gap-2 text-ink-muted">
-                            <span className="font-serif italic text-[1.0625rem] leading-none" translate="no">
-                                {timezone.city}
-                            </span>
-                            <span className="text-caption-small tabular-nums">{formatUtc(timezone.offset)}</span>
+                        <motion.p
+                            variants={item}
+                            className="mt-2 font-serif italic text-[1.0625rem] leading-none text-ink-muted"
+                            translate="no"
+                        >
+                            {timezone.city}
                         </motion.p>
                     </motion.div>
                 </AnimatePresence>

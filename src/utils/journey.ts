@@ -21,7 +21,6 @@ const JOURNEY_KEY = 'orbit_journey';
 const LAST_WAKE_KEY = 'orbit_last_wake';
 /** 上次确认起床时间的时刻（ISO） */
 const LAST_CHECKIN_KEY = 'orbit_last_checkin';
-const MAX_ENTRIES = 90;
 const CHECK_IN_AFTER_HOURS = 20;
 
 const pad = (n: number) => n.toString().padStart(2, '0');
@@ -62,7 +61,8 @@ export function recordWake(hour: number, minute: number, tz: TimezoneInfo, now: 
         cityCN: tz.cityCN,
     };
     const rest = readJourney().filter((e) => e.date !== entry.date);
-    const next = [...rest, entry].sort((a, b) => a.date.localeCompare(b.date)).slice(-MAX_ENTRIES);
+    // 不设上限：一天一条，十年也不过几百 KB，行程本身就是要攒下来的东西
+    const next = [...rest, entry].sort((a, b) => a.date.localeCompare(b.date));
     localStorage.setItem(JOURNEY_KEY, JSON.stringify(next));
 }
 
